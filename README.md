@@ -1,4 +1,4 @@
-# Métodos de avaliação de frases em português e resultados em pipeline
+# Métodos de avaliação de frases em português para selecionar parâmetros de avaliação de PLN gerado por LLM
 
 Levantamento e caracterização de **onze métodos** de verificação automática de frases em
 português brasileiro, aplicados a um mesmo corpus controlado de pares mínimos, e
