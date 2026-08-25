@@ -1,0 +1,63 @@
+% =====================================================================
+%  4. Metodologia — como o trabalho foi feito
+% =====================================================================
+\section{Metodologia}
+\label{sec:metodologia}
+
+O procedimento adotado parte de uma frase correta, modificada de forma controlada. Cada
+variante introduz um único desvio, de tipo conhecido. Todos os métodos são aplicados às
+mesmas frases, e observa-se o que cada um detecta, o que deixa passar e por qual mecanismo.
+
+A frase de referência é \emph{Há três dias o incêndio atingiu uma área de mata nativa},
+redigida a partir dos campos de um registro de eventos de fogo. Dela derivam as doze
+variantes apresentadas na Tabela~\ref{tab:perturbacoes}.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llp{5.4cm}@{}}
+\toprule
+\textbf{Variante} & \textbf{Nível afetado} & \textbf{Alteração introduzida} \\
+\midrule
+\texttt{natvia}                & ortografia   & forma inexistente no léxico \\
+\texttt{A três dias}           & escolha lexical & forma existente, mas inadequada \\
+\texttt{uma áreas}             & concordância nominal & determinante × núcleo \\
+\texttt{a área inteiro}        & concordância nominal & adjetivo posposto \\
+\texttt{os incêndios atingiu}  & concordância verbal & sujeito nominal × verbo \\
+\texttt{cantou}                & semântica    & restrição de seleção violada \\
+\texttt{que atingiu}           & estrutura    & relativa sem oração principal \\
+\texttt{Atingir\ldots}         & estrutura    & infinitivo isolado \\
+ordem embaralhada              & ordem        & as onze palavras permutadas \\
+\texttt{tres} + \texttt{áreas} + \texttt{natvia} & múltiplo & três desvios simultâneos \\
+\midrule
+\texttt{destruiu}              & ---          & paráfrase plausível (controle) \\
+\texttt{O incêndio é intenso}  & ---          & predicação nominal (controle) \\
+\bottomrule
+\end{tabular}}
+\caption{As doze variantes da frase de referência.}
+\label{tab:perturbacoes}
+\end{table}
+
+As duas últimas linhas não contêm desvio e destinam-se a verificar o inverso: um método que
+as acusa produz falso positivo. A forma \texttt{destruiu} constitui paráfrase igualmente
+correta, e \emph{O incêndio é intenso} é predicação nominal legítima, em que o verbo não
+ocupa a raiz da árvore.
+
+Seis frases auxiliares completam o corpus. Duas comparam complexidade sintática sob o mesmo
+número de palavras, duas comparam comprimento de dependência com as mesmas palavras em
+ordens distintas, e duas formam um par de permutação. São necessárias porque os descritores
+só se distinguem quando o comprimento é mantido fixo.
+
+Os onze métodos distribuem-se por quatro dimensões, cada uma associada a uma verificação
+distinta. A ortografia verifica se as palavras existem; a gramática, se elas concordam entre
+si; a estrutura, se a frase dispõe de predicado e como suas partes se articulam; e a
+semântica, se o enunciado é plausível. A divisão não é apenas organizativa, uma vez que cada
+dimensão pressupõe a anterior: não se avalia concordância sobre uma palavra que não existe,
+nem plausibilidade sobre uma frase desprovida de predicado. É essa dependência que determina
+a ordem das etapas da \emph{pipeline}.
+
+Nenhum modelo foi treinado ou ajustado. Todos os recursos são de prateleira, e os limites
+observados adiante pertencem a eles, e não ao método: a substituição do analisador sintático
+altera o resultado sem alterar uma linha da regra. O analisador declara acerto de 95,6\% nos
+traços morfológicos e de 86,0\% nos arcos de dependência, valores que a
+Seção~\ref{sec:empiricos} retoma ao discutir os falsos negativos.

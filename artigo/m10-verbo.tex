@@ -1,0 +1,74 @@
+% =====================================================================
+%  Método 10 — Plausibilidade do verbo mascarado   (dimensão: semântica)
+%  Origem: células 45, 46 e 47 do caderno
+% =====================================================================
+\subsection{Plausibilidade do verbo mascarado}
+\label{met:verbo}
+
+Os métodos anteriores atribuem escore ao que está escrito. Este inverte o procedimento:
+suprime-se a palavra e determina-se qual palavra seria esperada naquela posição, confrontando
+o texto com a expectativa apenas em seguida.
+
+A supressão de posição arbitrária não seria adequada, e a escolha é sintática: suprime-se a
+raiz da árvore de dependências, isto é, o verbo que sustenta a predicação e seleciona os
+demais argumentos. O método só se aplica quando $\mathrm{pos}(\raiz(\sent)) = \texttt{VERB}$
+e, quando essa condição é falsa --- fragmento ou predicação nominal ---, a resposta adequada é
+\texttt{n/a}, e não um escore. Não se trata de limitação implícita, mas de elemento
+constitutivo da definição. Cabe observar o arranjo: o analisador sintático determina a posição
+a ser consultada, e o modelo estatístico determina o que é plausível naquela posição, sendo
+que nenhum dos dois executaria a tarefa isoladamente.
+
+Substituída a raiz pela marca, obtém-se $\sent_{\setminus\raiz}$, e o modelo devolve uma
+distribuição sobre todo o vocabulário $\mathcal{V}$, que soma 1. Diferentemente do PLL,
+trata-se de probabilidade em sentido estrito, uma vez que a soma percorre as alternativas de
+uma única posição, que é exatamente o que o modelo mascarado foi treinado para prever. Dela se
+extraem duas leituras, o logaritmo da probabilidade do verbo escrito e a margem até o melhor
+preenchimento possível:
+%
+\begin{equation}
+\hat{v} = \arg\max_{v \in \mathcal{V}} P\bigl(v \mid \sent_{\setminus\raiz}\bigr)
+\qquad\qquad
+m(\sent) = \ln P\bigl(\hat{v} \mid \sent_{\setminus\raiz}\bigr) - \ln P\bigl(v_\raiz \mid \sent_{\setminus\raiz}\bigr)
+\end{equation}
+%
+Por construção $m(\sent) \geq 0$, e $m(\sent) = 0$ exatamente quando o verbo escrito é a
+primeira escolha do modelo.
+
+Adota-se a margem, e não o valor absoluto, porque este depende do grau geral de
+previsibilidade da posição: em contexto muito restrito toda alternativa recebe probabilidade
+elevada e, em contexto vago, toda alternativa recebe probabilidade baixa, inclusive o verbo
+adequado. A margem normaliza pelo máximo daquela posição, quantificando a distância ao melhor
+preenchimento em lugar da probabilidade absoluta.
+
+O método devolve a margem, acompanhada da lista das formas esperadas, conforme a
+Tabela~\ref{tab:verbo}.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Frase} & $\ln P$ (escrito) & \textbf{Margem} \\
+\midrule
+Há três dias o incêndio \textbf{destruiu} uma área de mata nativa. & $-0{,}72$  & $0{,}00$ \\
+Há três dias o incêndio \textbf{atingiu} uma área de mata nativa.  & $-0{,}91$  & $0{,}20$ \\
+Há três dias o incêndio \textbf{cantou} uma área de mata nativa.   & $-14{,}45$ & $\mathbf{13{,}73}$ \\
+\bottomrule
+\end{tabular}}
+\caption{A margem do verbo da raiz. As formas esperadas são as mesmas nas três frases:
+\texttt{[destruiu, atingiu, atinge, invadiu, em]}.}
+\label{tab:verbo}
+\end{table}
+
+A separação é ampla, com quase 14 nats entre o verbo adequado e o anômalo e os dois verbos
+plausíveis situados junto ao zero. O aspecto metodologicamente relevante é a lista de formas
+esperadas ser idêntica nas três frases, o que não poderia ser diferente: ao mascarar a raiz,
+suprime-se justamente a única palavra em que as frases diferem, de modo que o contexto
+remanescente é o mesmo. O instrumento de medida permanece fixo e apenas o objeto mensurado
+varia, e é essa condição que torna a comparação legítima.
+
+A primeira linha exibe o piso da medida. A forma \texttt{destruiu} é a primeira escolha do
+modelo, razão pela qual a margem é exatamente nula, o que confere significado ao zero da
+escala. Nos casos em que a raiz não é verbo, como no fragmento e na predicação nominal do
+corpus, a resposta é \texttt{n/a}, e o reconhecimento da não aplicabilidade integra o emprego
+correto do método.

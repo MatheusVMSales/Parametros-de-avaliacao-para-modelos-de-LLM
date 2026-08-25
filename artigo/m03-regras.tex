@@ -1,0 +1,79 @@
+% =====================================================================
+%  Método 3 — Regras escritas à mão (LanguageTool)  (dimensão: gramática)
+%  Origem: células 12, 13 e 14 do caderno
+% =====================================================================
+\subsection{Regras escritas à mão}
+\label{met:regras}
+
+A gramática normativa encontra-se codificada em compêndios e gramáticas de referência. Este
+método não realiza inferência: cada regra é transcrita manualmente como um padrão sobre a
+sequência anotada, e o verificador busca casamentos.
+
+A frase é tokenizada e anotada, constituindo uma sequência de triplas
+%
+\begin{equation}
+\sent = \bigl\langle (w_1, \ell_1, p_1),\ (w_2, \ell_2, p_2),\ \ldots,\ (w_n, \ell_n, p_n) \bigr\rangle
+\end{equation}
+%
+em que $w_i$ designa a forma escrita, $\ell_i$ o lema e $p_i$ a etiqueta morfológica.
+
+Cada regra $r$ consiste em um padrão $\pi_r$: expressão sobre essas triplas, análoga a uma
+expressão regular, porém operando sobre atributos linguísticos em lugar de caracteres. A
+regra dispara nas posições em que o padrão casa,
+%
+\begin{equation}
+D_r(\sent) = \{\, i \;:\; \pi_r \text{ casa em } \sent \text{ a partir da posição } i \,\}
+\end{equation}
+%
+e a saída do método é a união sobre a gramática $R$, o conjunto finito de regras elaboradas
+para o idioma:
+%
+\begin{equation}
+D(\sent) = \bigcup_{r \in R} \bigl\{ (i,\, r) \;:\; i \in D_r(\sent) \bigr\}
+\end{equation}
+
+A propriedade determinante do método é que $R$ é finito e de elaboração manual. Daí decorre,
+sem gradação intermediária,
+%
+\begin{equation}
+\text{erro} \notin \bigcup_{r \in R} \mathcal{L}(\pi_r) \;\Longrightarrow\; \text{invisível}
+\end{equation}
+%
+em que $\mathcal{L}(\pi_r)$ designa o conjunto de construções que o padrão reconhece. Não há
+generalização nem grau de confiança: na ausência de regra correspondente, o desvio não é
+detectado. A cobertura do método equivale, portanto, ao trabalho humano investido no idioma
+--- trabalho de natureza voluntária e distribuído de forma desigual entre as línguas. Para o
+português contabilizam-se 2.270 regras, reunidas em 249 grupos.
+
+Sobre \emph{A três dias o incêndio atingiu uma área de mata nativa}, uma única regra casa, na
+posição inicial:
+%
+\begin{equation}
+D(\sent) = \bigl\{\, (0,\ \texttt{CONFUSÃO\_À\_HÁ}) \,\bigr\}
+\end{equation}
+%
+A Tabela~\ref{tab:disparo} apresenta os campos que acompanham o disparo.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llp{5.2cm}@{}}
+\toprule
+\textbf{Campo} & \textbf{Valor} & \textbf{Conteúdo} \\
+\midrule
+\texttt{ruleId}       & \texttt{CONFUSÃO\_À\_HÁ} & a regra que casou --- o $r$ da fórmula \\
+\texttt{offset}       & 0        & a posição do casamento --- o $i$ da fórmula \\
+\texttt{errorLength}  & 1        & a extensão do casamento \\
+trecho                & \texttt{'A'}    & o segmento coberto por $\pi_r$ \\
+\texttt{replacements} & \texttt{['Há']} & a correção que a regra carrega \\
+\texttt{message}      & \emph{``\ldots substitua por há.''} & a norma, redigida em português \\
+\bottomrule
+\end{tabular}}
+\caption{Campos de um disparo do LanguageTool.}
+\label{tab:disparo}
+\end{table}
+
+O par $(i, r)$ constitui a localização. A última linha corresponde ao que nenhum outro método
+fornece: um enunciado em português que explicita a norma, redigido conjuntamente com o
+padrão. Trata-se, ademais, precisamente do caso que o léxico não alcança, uma vez que
+\texttt{a} pertence ao léxico e apenas uma regra de elaboração manual detecta a troca.

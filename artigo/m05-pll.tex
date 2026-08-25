@@ -1,0 +1,70 @@
+% =====================================================================
+%  Método 5 — PLL   (dimensão: gramática)
+%  Origem: células 20, 22 e 23 do caderno
+% =====================================================================
+\subsection{PLL --- pseudo-log-verossimilhança}
+\label{met:pll}
+
+O SLOR estima a probabilidade sob um modelo causal, restrito ao contexto à esquerda. Um
+modelo mascarado dispõe de ambos os lados: suprime-se uma palavra e consulta-se o modelo
+sobre o valor esperado naquela posição, com a totalidade da frase remanescente disponível. A
+pseudo-log-verossimilhança soma essas respostas, uma por posição:
+%
+\begin{equation}
+\PLL(\sent) = \sum_{i=1}^{|\sent|} \ln P_{\mathrm{MLM}}\bigl(\sent_i \mid \sent_{\setminus i}\bigr)
+\end{equation}
+%
+em que $\sent_{\setminus i}$ designa a frase com a posição $i$ substituída pela marca
+\texttt{[MASK]}. Cada parcela exige uma passagem pelo modelo, de modo que uma frase de $n$
+palavras demanda $n$ inferências. Empregou-se o BERTimbau \emph{base cased}~\cite{souza2020}.
+
+O qualificativo \emph{pseudo} é literal, e não ressalva notacional. As $|\sent|$ parcelas se
+sobrepõem, pois cada uma pressupõe corretas todas as demais posições. A soma, portanto, não
+corresponde a $\ln P(\sent)$: não há regra de cadeia que a produza, e ela não integra 1 sobre
+o espaço das frases. Decorre daí que o valor absoluto carece de significado, e apenas
+comparações são interpretáveis.
+
+A soma é grandeza extensiva, pois cada posição acrescenta uma parcela negativa e o escore
+decresce com o comprimento ainda que a frase seja bem formada; a comparação de frases de
+extensões distintas pela soma mensura sobretudo a extensão. Adota-se, por isso, a média, que
+é intensiva e torna a medida homogênea ao SLOR, igualmente dividido por $|\sent|$:
+%
+\begin{equation}
+\PLLm(\sent) = \frac{1}{|\sent|}\sum_{i=1}^{|\sent|} \ln P_{\mathrm{MLM}}\bigl(\sent_i \mid \sent_{\setminus i}\bigr)
+\end{equation}
+
+Confrontando as duas medidas sob a mesma forma, evidencia-se a diferença que determina o
+emprego de cada uma:
+%
+\begin{equation}
+\SLOR(\sent) = \frac{\ln P_{\mathrm{LM}}(\sent) - \overbrace{\ln P_{\mathrm{uni}}(\sent)}^{\text{referência}}}{|\sent|}
+\qquad\qquad
+\PLLm(\sent) = \frac{\ln P_{\mathrm{MLM}}(\sent) - \overbrace{0}^{\text{nenhuma}}}{|\sent|}
+\end{equation}
+%
+O PLL não subtrai referência alguma. Trata-se da mesma forma com a linha de base anulada, e
+essa ausência constitui simultaneamente sua vantagem --- nada há a estimar a partir de
+contagens --- e sua limitação.
+
+O método devolve um número por frase. A Tabela~\ref{tab:pll} apresenta o resultado sobre o
+par mínimo de concordância verbal.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Frase} & \textbf{Soma} & $\PLLm$ \\
+\midrule
+Há três dias o incêndio atingiu uma área de mata nativa.   & $-9{,}16$  & $-0{,}763$ \\
+Há três dias os incêndios atingiu uma área de mata nativa. & $-15{,}16$ & $-1{,}263$ \\
+\bottomrule
+\end{tabular}}
+\caption{O PLL sobre o par mínimo de concordância verbal ($|\sent| = 12$ em ambas).}
+\label{tab:pll}
+\end{table}
+
+A separação é nítida, e a queda concentra-se em uma única posição: a palavra \texttt{atingiu}
+passa de $-0{,}91$ na versão correta para $-6{,}09$ na versão com desvio. Manifesta-se aqui a
+bidirecionalidade do modelo, uma vez que, ao mascarar o verbo, ele dispõe de \emph{os
+incêndios} à esquerda e conclui pela inadequação do singular.

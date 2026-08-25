@@ -1,0 +1,61 @@
+% =====================================================================
+%  Método 6 — Teste do núcleo predicativo   (dimensão: estrutura)
+%  Origem: células 25, 26 e 27 do caderno
+% =====================================================================
+\subsection{Teste do núcleo predicativo}
+\label{met:raiz}
+
+Toda frase requer um predicado. Não se trata de heurística nem de tendência estatística, mas
+de propriedade sintática, e em uma árvore de dependências essa propriedade é verificável em
+um único ponto: a raiz, que por construção é o nó do qual todos os demais dependem.
+
+Seja $\raiz(\sent)$ a raiz da árvore e $\mathrm{filhos}(\raiz)$ seus dependentes diretos. A
+frase possui predicado quando
+%
+\begin{equation}
+\mathrm{Pred}(\sent) \;=\;
+\underbrace{\bigl[\mathrm{pos}(\raiz) \in \{\texttt{VERB}, \texttt{AUX}\}\bigr]}_{\text{predicado verbal}}
+\;\lor\;
+\underbrace{\bigl[\exists\, c \in \mathrm{filhos}(\raiz) : \mathrm{dep}(c) = \texttt{cop}\bigr]}_{\text{predicado nominal}}
+\end{equation}
+%
+Duas linhas de código e um único nó inspecionado bastam, o que faz deste o método de menor
+custo entre os onze e ainda assim produz veredito binário e localizado.
+
+A inspeção recai sobre a raiz, e não sobre a presença de verbo, porque o teste ingênuo ---
+verificar se existe algum verbo na frase --- aprova o fragmento. Confrontem-se \emph{O
+incêndio \textbf{atingiu} a mata nativa} e \emph{O incêndio que \textbf{atingiu} a mata
+nativa}: ambas contêm o verbo \texttt{atingiu}, mas a primeira constitui oração e a segunda
+não. O que difere não é a presença do verbo, e sim sua posição na árvore, pois o pronome
+\texttt{que} o rebaixa a oração relativa (\texttt{acl:relcl}) e promove o substantivo à raiz.
+Uma única palavra converte oração em fragmento, e apenas a estrutura registra o fato.
+
+O segundo termo da disjunção é igualmente necessário. Em predicações nominais, como \emph{O
+carro é azul}, a raiz é o predicativo \texttt{azul}, etiquetado \texttt{ADJ}, e o verbo
+\texttt{é} figura como dependente com função \texttt{cop}. Na ausência dessa cláusula, toda
+construção copular seria classificada como fragmento, o que inviabilizaria o método em
+português.
+
+O método devolve um veredito binário acompanhado do nó que o justifica, conforme a
+Tabela~\ref{tab:raiz}.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Frase} & \textbf{Raiz} & \textbf{Classe} & \textbf{Veredito} \\
+\midrule
+Há três dias o incêndio atingiu uma área\ldots       & \texttt{atingiu} & VERB & ORAÇÃO \\
+Há três dias o incêndio que atingiu uma área\ldots   & \texttt{dias}    & NOUN & \textbf{FRAGMENTO} \\
+O incêndio é intenso.                                & \texttt{intenso} & ADJ + cópula & ORAÇÃO \\
+\bottomrule
+\end{tabular}}
+\caption{O teste da raiz sobre três frases do corpus.}
+\label{tab:raiz}
+\end{table}
+
+A segunda linha corresponde ao fragmento, e a terceira exercita a cláusula da cópula: a raiz é
+um adjetivo, o primeiro termo da disjunção é falso, e ainda assim a frase é corretamente
+aprovada. O método mensura completude, e nada além disso, não estabelecendo nada quanto à
+correção ou à plausibilidade da frase.

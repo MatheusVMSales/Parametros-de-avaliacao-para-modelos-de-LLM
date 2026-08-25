@@ -1,0 +1,73 @@
+% =====================================================================
+%  Método 8 — Comprimento de dependência e não-projetividade  (estrutura)
+%  Origem: células 33, 34 e 35 do caderno
+% =====================================================================
+\subsection{Comprimento de dependência e não-projetividade}
+\label{met:dependencia}
+
+Os métodos anteriores examinavam quais palavras se vinculam a quais. Este examina a distância
+que as separa na ordem linear e a eventual sobreposição entre os vínculos. São duas medidas
+extraídas da mesma árvore, ambas operando sobre apenas duas informações --- o conjunto de
+arcos e a posição de cada palavra ---, sem que intervenham etiquetas, morfologia ou léxico.
+
+A primeira é o comprimento de dependência. Cada palavra $t$, exceto a raiz, vincula-se ao seu
+núcleo $\nucleo{t}$; sendo $i(\cdot)$ a posição na frase, o arco apresenta comprimento
+$d(t) = \lvert\, i(t) - i(\nucleo{t}) \,\rvert$, e a soma sobre a frase integral fornece
+%
+\begin{equation}
+D(\sent) = \sum_{t \,\neq\, \raiz} d(t)
+\qquad\qquad
+\bar{D}(\sent) = \frac{D(\sent)}{|A|}
+\end{equation}
+%
+em que $|A|$ designa o número de arcos, excluída a pontuação. Uma vez que $D$ cresce com a
+extensão da frase, apenas $\bar{D}$ é comparável entre frases de comprimentos diferentes.
+
+A justificativa da medida é de ordem cognitiva. Um arco vincula duas palavras cuja relação é
+necessária à interpretação; ao processar a primeira, o leitor mantém o vínculo em aberto até
+encontrar a segunda, e quanto maior o arco, maior o intervalo de retenção. É a hipótese da
+minimização do comprimento de dependência~\cite{gibson1998,liu2008}, para a qual há evidência
+em larga escala em dezenas de línguas~\cite{futrell2015}.
+
+A segunda medida é a não-projetividade. Tomem-se dois arcos, cada um representado com a
+extremidade de menor índice em primeiro lugar, $(i,j)$ e $(k,l)$, com $i<j$ e $k<l$. Os arcos
+se cruzam quando exatamente uma extremidade de cada um recai no interior do outro:
+%
+\begin{equation}
+i < k < j < l \qquad\text{ou}\qquad k < i < l < j
+\end{equation}
+%
+Sendo $X(\sent)$ o total de pares que se cruzam, a árvore é projetiva quando $X(\sent) = 0$,
+isto é, quando é possível traçar todos os arcos acima da linha sem sobreposição entre eles. A
+condição é puramente aritmética sobre índices, não comportando elemento linguístico algum.
+
+O corpus contém duas frases com as mesmas 13 palavras e os mesmos 12 arcos, ambas corretas,
+diferindo apenas na ordem. A Tabela~\ref{tab:dependencia} apresenta as duas medidas sobre
+elas.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Frase} & $D$ & $\bar{D}$ & \textbf{Maior arco} & $X$ \\
+\midrule
+O vento agravou a seca que intensificou o fogo que destruiu a mata. & 17 & 1,42 & 2 & 0 \\
+O fogo que a seca que o vento agravou intensificou destruiu a mata. & 43 & 3,58 & 9 & 0 \\
+\bottomrule
+\end{tabular}}
+\caption{As duas medidas sobre o mesmo conteúdo em ordens distintas.}
+\label{tab:dependencia}
+\end{table}
+
+Na primeira frase nenhum arco excede 2, pois cada relativa se vincula ao substantivo
+imediatamente anterior e a frase se resolve da esquerda para a direita sem retenção. Na
+segunda os vínculos se acumulam --- \texttt{fogo} encontra seu verbo nove posições adiante
+--- e $\bar{D}$ mais que duplica. Como referência aproximada, a prosa comum em português
+situa-se entre 1 e 2; acima de 3, a frase mantém número elevado de vínculos simultaneamente
+em aberto.
+
+Este é o aspecto inacessível aos índices da subseção anterior. Ambas as frases encaixam duas
+relativas e receberiam a mesma profundidade e o mesmo número de orações, de modo que o que as
+distingue é a posição em que as relativas foram inseridas. Já $X$ é nulo em ambas, como
+ocorre na quase totalidade dos casos, o que a Seção~\ref{sec:empiricos} retoma.

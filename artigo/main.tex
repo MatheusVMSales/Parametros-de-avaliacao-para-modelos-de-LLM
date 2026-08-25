@@ -1,0 +1,176 @@
+% =====================================================================
+%  Métodos de avaliação de frases em português e resultados em pipeline
+%
+%  Autor: Matheus Sales
+%  Compila com pdfLaTeX + Biber (Overleaf: Menu > Compiler > pdfLaTeX)
+%
+%  Fonte do material: aplicacao_tecnicas.ipynb (52 células, 12 seções).
+%  Todos os números reportados vêm da execução real do caderno.
+%
+%  ESTRUTURA MODULAR: cada seção vive em NN-nome.tex.
+%  Para trabalhar em uma seção isolada, comente os demais \input.
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- codificação e idioma ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{csquotes}          % exigido pelo biblatex sob babel
+
+% ---------- matemática ----------
+\usepackage{amsmath,amssymb,amsthm}
+
+% ---------- tabelas e figuras ----------
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{float}             % fornece [H]: a tabela fica ONDE foi escrita
+\usepackage{xcolor}
+
+% ---------- árvores de dependência e diagramas ----------
+\usepackage{tikz}
+\usepackage{tikz-dependency}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+
+% ---------- código ----------
+\usepackage{listings}
+\usepackage[htt]{hyphenat}     % permite quebra de linha em \texttt
+
+% ---------- geometria ----------
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+% ---------- referências cruzadas ----------
+\usepackage[hidelinks]{hyperref}
+
+% ---------- bibliografia ----------
+% biblatex-abnt + biber. Para trocar de veículo, substituir style=abnt
+% por style=numeric (genérico) ou pelo estilo exigido pela revista.
+\usepackage[style=abnt,backend=biber]{biblatex}
+\addbibresource{referencias.bib}
+
+% =====================================================================
+%  Ambientes de teorema
+%  A Seção 5 (Resultados analíticos) depende deles: as proposições são
+%  o resultado mais forte do artigo e não podem se dissolver em prosa.
+% =====================================================================
+\theoremstyle{plain}
+\newtheorem{proposicao}{Proposição}
+\newtheorem{corolario}[proposicao]{Corolário}
+
+\theoremstyle{definition}
+\newtheorem{definicao}{Definição}
+\newtheorem{observacao}{Observação}
+
+\renewcommand{\proofname}{Demonstração}
+
+% =====================================================================
+%  Notação — macros usadas em todo o artigo
+%  Centralizadas aqui para que a notação permaneça única (o caderno
+%  usava doze notações locais; o artigo usa uma).
+% =====================================================================
+\newcommand{\sent}{s}                                  % a frase
+\newcommand{\lexico}{D}                                % o léxico
+\newcommand{\raiz}{\rho}                               % raiz da árvore
+\newcommand{\nucleo}[1]{h(#1)}                         % núcleo de que #1 depende
+\newcommand{\tracos}[2]{\mu_{#1}(#2)}                  % traço observado
+\newcommand{\tracosp}[2]{\hat\mu_{#1}(#2)}             % traço PREDITO
+\newcommand{\ausente}{\bot}                            % ausência de traço
+\newcommand{\SLOR}{\mathrm{SLOR}}
+\newcommand{\PLL}{\mathrm{PLL}}
+\newcommand{\PLLm}{\overline{\mathrm{PLL}}}
+\newcommand{\surp}{\mathrm{surp}}
+\newcommand{\prof}{\mathrm{prof}}
+\newcommand{\orac}{\mathrm{orac}}
+\newcommand{\ramif}{\mathrm{ramif}}
+\newcommand{\vetor}[1]{\mathbf{v}(#1)}
+\newcommand{\cosseno}{\cos}
+
+% =====================================================================
+%  Listagens de código (Apêndice A)
+% =====================================================================
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  frame=single,
+  framesep=4pt,
+  language=Python,
+  showstringspaces=false,
+  extendedchars=true,
+  inputencoding=utf8,          % acentos nos comentários do código (Apêndice A)
+}
+
+% Tabelas discutidas no texto imediatamente adjacente usam [H].
+\newcommand{\dimtable}[1]{\small #1}
+
+% =====================================================================
+%  Capa
+% =====================================================================
+\title{\textbf{Métodos de avaliação de frases em português\\
+       e resultados em pipeline}}
+
+\author{Matheus Sales\thanks{Contato: matheusvmsales1@gmail.com}}
+
+\date{}   % preencher com a data de submissão, ou manter vazio
+
+\begin{document}
+\maketitle
+
+% ---------------------------------------------------------------------
+\begin{abstract}
+\noindent
+Dada uma frase isolada, sem gabarito e sem referência, coloca-se a questão de quanto se
+pode afirmar automaticamente a respeito de sua boa formação. Este trabalho levanta onze
+métodos de avaliação aplicáveis ao português brasileiro --- léxicos, gramáticas de
+padrões, analisadores sintáticos, modelos de $n$-grama, modelos mascarados e vetores
+distribucionais ---, descreve cada um sob um formalismo único e submete todos a um mesmo
+conjunto controlado de pares mínimos. A caracterização mostra que os métodos não são
+intercambiáveis nem ordenáveis por qualidade: suas coberturas são complementares, e nem
+toda medida bem definida constitui um detector de desvio. Quatro das medidas examinadas
+degeneram --- uma reduz-se a função exclusiva do comprimento da frase, uma converge para
+uma constante determinada por um hiperparâmetro de suavização, uma reduz-se à frequência
+isolada da palavra e uma é invariante a toda permutação ---, e as quatro degenerações são
+estabelecidas por demonstração, e não por medição. Dos métodos que sobrevivem à
+caracterização compõe-se uma \emph{pipeline} de quatro etapas, cuja ordem decorre das
+propriedades medidas e cujo veredito resulta da vacuidade de um conjunto de achados
+localizados, com um único parâmetro calibrável em toda a cadeia. Reportam-se os resultados
+da pipeline sobre o mesmo corpus, incluindo a propagação de erro entre etapas e os tipos
+de desvio que ela não alcança.
+
+\vspace{6pt}
+\noindent\textbf{Palavras-chave:} avaliação automática de frases; pares mínimos;
+aceitabilidade linguística; análise de dependências; língua portuguesa.
+\end{abstract}
+
+\vspace{12pt}
+
+% =====================================================================
+%  Corpo do artigo
+%  Descomente cada \input à medida que a seção for escrita e revisada.
+% =====================================================================
+\input{01-introducao}
+% \input{02-trabalhos-relacionados}
+% \input{03-preliminares}
+\input{04-metodologia}
+\input{05-metodos}
+\input{06-resultados}
+% \input{07-pipeline}
+% \input{08-discussao}
+% \input{09-conclusao}
+
+% ---------------------------------------------------------------------
+\printbibliography[title={Referências}]
+
+% ---------------------------------------------------------------------
+% \appendix
+% \input{A-codigo}
+% \input{B-tabelas-derivacao}
+% \input{C-protocolo}
+
+\end{document}

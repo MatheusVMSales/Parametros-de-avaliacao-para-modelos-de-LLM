@@ -1,0 +1,66 @@
+% =====================================================================
+%  Método 7 — Índices de complexidade sintática   (dimensão: estrutura)
+%  Origem: células 29, 30 e 31 do caderno
+% =====================================================================
+\subsection{Índices de complexidade sintática}
+\label{met:complexidade}
+
+Os métodos anteriores investigavam a correção da frase. Este investiga outra propriedade, o
+grau de elaboração da construção, e o resultado que produz não é um veredito, mas um perfil
+numérico. Três índices se extraem da mesma árvore.
+
+O primeiro é a profundidade máxima, definida como a distância do nó mais afastado até a raiz,
+%
+\begin{equation}
+\prof(\sent) = \max_{t \in \sent} \; d(t, \raiz)
+\end{equation}
+%
+em que $d(t,\raiz)$ designa o número de arcos percorridos de $t$ até a raiz. O índice mensura
+encaixamento, isto é, o número de níveis de subordinação acumulados pela frase.
+
+O segundo é o número de orações, obtido pela contagem dos nós que encabeçam oração, a
+principal e as subordinadas:
+%
+\begin{equation}
+\orac(\sent) = \bigl|\{\, t \in \sent : \mathrm{dep}(t) \in \mathcal{C} \,\}\bigr|,
+\qquad \mathcal{C} = \{\texttt{ROOT}, \texttt{ccomp}, \texttt{xcomp}, \texttt{advcl},
+\texttt{acl}, \texttt{acl:relcl}, \texttt{csubj}\}
+\end{equation}
+
+O terceiro é a ramificação média, o número médio de filhos por nó:
+%
+\begin{equation}
+\ramif(\sent) = \frac{1}{n}\sum_{t \in \sent} \bigl|\mathrm{filhos}(t)\bigr|
+\end{equation}
+
+A finalidade destes índices é a comparação de registros --- o jurídico e o jornalístico ---,
+a estimativa de dificuldade de leitura e a caracterização autoral. Trata-se de medidas de
+estilo e de carga de processamento, e não de correção: uma frase de elevada complexidade não
+é por isso incorreta, e uma frase incorreta pode ser trivialmente simples.
+
+O corpus contém duas frases de exatamente 13 palavras e estruturas maximamente distintas. A
+primeira constitui lista plana, com um verbo e cinco irmãos dele dependentes; a segunda
+encaixa duas relativas, uma no interior da outra. A Tabela~\ref{tab:complexidade} apresenta
+os três índices sobre ambas.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Frase} & $n$ & $\prof$ & $\orac$ & $\ramif$ \\
+\midrule
+O incêndio devastou mata, cerrado, pasto, encosta e vale. & 13 & 3 & 1 & 0,9231 \\
+O incêndio que atingiu a mata que cercava o vale enfim cessou. & 13 & 6 & 3 & 0,9231 \\
+\bottomrule
+\end{tabular}}
+\caption{Os três índices sobre duas frases de mesmo comprimento.}
+\label{tab:complexidade}
+\end{table}
+
+A profundidade e o número de orações separam as duas frases com margem ampla: o encaixamento
+duplica e a contagem de orações triplica, sem alteração do comprimento. É o comportamento
+esperado de um índice de complexidade, a saber, capturar a forma da árvore independentemente
+do número de palavras que a compõem, e nenhum dos métodos anteriores distingue essas duas
+frases, uma vez que ambas são corretas. A terceira coluna, contudo, é idêntica nas duas, e a
+Seção~\ref{sec:empiricos} examina a razão disso.

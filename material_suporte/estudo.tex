@@ -1,0 +1,1052 @@
+% =====================================================================
+%  Avaliação automática de frases em português — técnicas e métodos
+%  Compila com pdfLaTeX (Overleaf). Fonte: três notebooks Jupyter:
+%    estudo_tecnicas_avaliacao.ipynb, avaliacao_de_frases.ipynb,
+%    justificativa_pipeline.ipynb
+%  Todos os números vêm da execução real dos notebooks (CPU).
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{float}           % fornece [H]: a tabela fica ONDE foi escrita
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[htt]{hyphenat}   % permite quebra de linha em \texttt
+\usepackage[hidelinks]{hyperref}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  frame=single,
+  framesep=4pt,
+  language=Python,
+  showstringspaces=false,
+}
+
+% Todas as tabelas são pequenas e discutidas no texto imediatamente adjacente.
+% Por isso usam [H]: ficam exatamente onde foram escritas, em vez de flutuarem.
+\newcommand{\dimtable}[1]{\small #1}
+
+\title{Avaliação automática de frases em português:\\
+       técnicas, funcionamento e aplicabilidade}
+\author{Matheus Sales}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Dada uma frase isolada, sem gabarito e sem referência, coloca-se a questão de quanto se pode afirmar
+a respeito de sua qualidade. Este relatório levanta e descreve as técnicas disponíveis para avaliá-la
+automaticamente em cinco dimensões --- ortografia, gramática, estrutura, semântica e coerência ---
+em português brasileiro. Para cada técnica expõem-se quatro aspectos: o \emph{funcionamento} (de
+onde vem o conhecimento que ela mobiliza), o \emph{método de avaliação} (como converte uma frase em
+veredito), a \emph{aplicabilidade} (em que condições o resultado é válido) e os \emph{limites}
+observados. As dezesseis técnicas implementadas foram executadas sobre um mesmo corpus rotulado de
+pares mínimos, de modo que as afirmações sobre comportamento estejam ancoradas em medição, e não em
+descrição de catálogo. Discute-se ainda, criticamente, o emprego de um LLM como juiz.
+\end{abstract}
+
+% =====================================================================
+\section{O problema e o que organiza as técnicas}
+% =====================================================================
+
+Métricas clássicas de classificação (acurácia, precisão, \textit{recall}) pressupõem uma resposta
+correta única. Avaliar a boa formação de uma frase isolada rompe essa premissa: não há gabarito,
+não há referência, e a ``qualidade'' decompõe-se em perguntas independentes. Cabe considerar cinco
+dimensões, uma delas --- a ortografia/mecânica --- pré-requisito das demais:
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Dimensão} & \textbf{Pergunta} & \textbf{Nível} \\
+\midrule
+Ortografia/mecânica & As palavras existem? Pontuação e maiúsculas? & frase \\
+Gramática           & Concordância, regência, tempos verbais?      & frase \\
+Estrutura           & Tem predicado? É fragmento? É navegável?      & frase \\
+Semântica           & A frase \textit{significa} algo?              & frase \\
+Coesão/coerência    & As partes se encadeiam?                       & \textbf{texto} \\
+\bottomrule
+\end{tabular}}
+\caption{As dimensões da avaliação. Cabe observar a última linha.}
+\label{tab:dimensoes}
+\end{table}
+
+\paragraph{Coerência é relação, não propriedade.}
+``O carro é azul'' não é coerente nem incoerente --- é apenas uma frase. Coerência é uma relação
+\emph{entre} frases. Por isso as técnicas se dividem em dois níveis: as de frase (ortografia,
+gramática, estrutura, semântica) e as de texto (coesão e coerência), e nenhuma técnica do segundo
+grupo é aplicável a uma frase isolada.
+
+\paragraph{O eixo que organiza o levantamento: dimensão $\times$ juiz.}
+Uma frase isolada não dispõe de termo de comparação; logo, o que organiza o problema não é
+``comparado com quê'', mas o cruzamento entre \emph{o que se mede} e \emph{quem mede}. Os juízes
+possíveis formam uma escala:
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Juiz} & \textbf{Custo} & \textbf{Dá diagnóstico?} & \textbf{Onde serve} \\
+\midrule
+léxico + regra determinística & $\sim$0        & sim, exato          & ortografia, mecânica \\
+\textit{parser} morfossintático & baixo        & sim, aponta o \textit{token} & gramática, estrutura \\
+modelo de linguagem           & médio          & não, só um número   & aceitabilidade, semântica \\
+LLM com rubrica               & alto           & em linguagem natural & todas, com ressalvas \\
+\bottomrule
+\end{tabular}}
+\caption{Os juízes disponíveis. A capacidade de diagnóstico desce de ``exato'' a ``nenhum'' e
+retorna como texto livre, enquanto o custo sobe monotonicamente.}
+\label{tab:juizes}
+\end{table}
+
+\noindent A tensão central do campo está entre a segunda e a terceira linhas: o \textit{parser}
+indica exatamente \emph{o que} está errado, mas é insensível ao significado; o modelo de linguagem
+percebe \emph{que} algo está errado, mas não identifica o quê. Nenhum dos dois, isoladamente,
+constitui um avaliador.
+
+\paragraph{Duas famílias de saída.}
+Antes de descrever qualquer técnica é preciso separar dois tipos de saída, sob pena de medir uma
+pela métrica da outra:
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Tipo} & \textbf{Saída} & \textbf{Como se mede} \\
+\midrule
+Detector binário   & dispara / não dispara & taxa de detecção + falsos positivos \\
+Pontuador contínuo & um número             & acurácia em pares mínimos \\
+\bottomrule
+\end{tabular}}
+\caption{Um pontuador com ``6/6'' ordenou o par corretamente; não encontrou nem localizou o erro.}
+\label{tab:familias}
+\end{table}
+
+\noindent A distinção não é terminológica, e tem consequência direta de aplicabilidade. Um pontuador
+só produz veredito quando há \emph{dois} objetos a comparar; diante de uma frase isolada, devolve um
+número sem referência. Um detector opera sobre uma frase só. Confundir as famílias faz com que
+``6/6'' de um pontuador e ``6/6'' de um detector pareçam comparáveis quando afirmam coisas
+distintas.
+
+\paragraph{Método de comparação: pares mínimos.}
+Comparar técnicas exige um corpus com gabarito, e a construção adequada é o \emph{par mínimo}: uma
+frase-base correta e versões dela que alteram um único aspecto. Se duas frases diferem apenas na
+concordância e a técnica as ordena corretamente, então ela mede concordância --- não comprimento,
+vocabulário ou assunto. Trata-se da metodologia do CoLA e do BLiMP.
+
+O par mínimo cumpre papéis distintos conforme a família. Para os \emph{detectores}, a variante
+correta funciona como controle de falso positivo: disparar nas duas versões significa detectar a
+frase, não o defeito. Para os \emph{pontuadores}, é a única comparação válida que existe, pois
+mantém o vocabulário constante e neutraliza o efeito de frequência que, fora dele, domina o escore.
+Em contrapartida, o par mínimo só testa defeitos obteníveis por edição local --- daí a necessidade
+de \emph{sondas} adicionais.
+
+% =====================================================================
+\section{Material e procedimento de medição}
+% =====================================================================
+
+\subsection{Corpus}
+\label{sec:corpus}
+
+O corpus é composto de 6 bases $\times$ 6 variantes = 36 frases. Cada base é uma frase correta;
+cada variante introduz um único defeito de tipo conhecido (o gabarito), mantendo o restante
+idêntico.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Variante (base B1)} & \textbf{Frase} \\
+\midrule
+correta       & Os pesquisadores analisaram os dados coletados durante o experimento. \\
+ortografia    & Os pesquisadores anali\textbf{z}aram os dados coletados \dots \\
+conc.\ nominal& \dots os dados \textbf{coletado} \dots \\
+conc.\ verbal & Os pesquisadores \textbf{analisou} os dados \dots \\
+fragmento     & Os pesquisadores \textbf{que} analisaram os dados \dots \\
+anomalia sem. & Os pesquisadores \textbf{beberam} os dados \dots \\
+\bottomrule
+\end{tabular}}
+\caption{As seis variantes de uma base. O gabarito registra o defeito de cada uma.}
+\label{tab:corpus}
+\end{table}
+
+
+\noindent fluency, citantion recall and citation precison
+
+bleu x bertscore
+
+\noindent A isso somam-se \emph{sondas} que não são pares mínimos: duas frases de palavras
+embaralhadas (desordem global), uma frase gramatical sem sentido (``Ideias verdes incolores dormem
+furiosamente'') e uma frase correta de vocabulário raro. As sondas não são supérfluas: são elas, e
+não os pares, que revelam as falhas mais graves dos pontuadores, pois o defeito global não é
+obtenível por edição local e, portanto, não cabe num par mínimo. Para a dimensão de coerência,
+usam-se parágrafos (coerentes, sem relação, coeso-mas-vazio e embaralhados).
+
+\subsection{Protocolo}
+
+Cada técnica é medida por: (i) taxa de detecção por tipo de defeito e falsos positivos (detectores
+binários); (ii) acurácia em pares mínimos --- a frase correta vence a corrompida? (pontuadores
+contínuos); (iii) custo em milissegundos por frase; e, para coerência, (iv) o teste de
+embaralhamento: a ordem original deve pontuar acima de suas permutações, contando-se os empates no
+topo.
+
+\paragraph{Instrumentos de validação mobilizados.} Além dos acima, cabe registrar os instrumentos
+próprios de cada família, ainda que não aplicados aqui por ausência de anotação humana: o
+coeficiente de correlação de Matthews (MCC), para classificadores de aceitabilidade, cujas classes
+são desbalanceadas; Spearman e Kendall, para correlacionar a ordem produzida com o juízo humano; e o
+Kappa de Cohen ou o alpha de Krippendorff, para o acordo entre anotadores --- que constitui o
+\emph{teto} de qualquer métrica automática, pois nenhuma pode correlacionar bem com uma resposta
+humana que os próprios humanos não compartilham. Como referências externas servem o CoLA e o BLiMP
+(inglês) e o ASSIN/ASSIN~2, o \textit{Coh-Metrix-Port} (NILC/USP) e as tarefas do PROPOR
+(português).
+
+\subsection{Recursos empregados e suas propriedades}
+\label{sec:recursos}
+
+Dois recursos determinam boa parte do comportamento observado, e vários modos de falha decorrem
+diretamente de suas propriedades, e não das técnicas que os empregam.
+
+\paragraph{O léxico (\texttt{pyspellchecker}, idioma \texttt{pt}).} É um único arquivo com um
+dicionário \emph{palavra $\rightarrow$ contagem}, que exerce \emph{dois} papéis: dicionário (a
+palavra existe?) e tabela de frequências ($\ln P_{\mathrm{uni}}$, empregada pelo SLOR). Os dois
+papéis têm exigências diferentes --- cobertura e representatividade --- atendidas pelo mesmo
+arquivo.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Propriedade} & \textbf{Valor} \\
+\midrule
+Entradas (formas distintas)                       & 416.782 \\
+Soma das contagens ($N$)                          & 387.750.743 \\
+Contagem mínima presente                          & 50 \\
+Formas grampeadas na contagem-piso 50             & 370.168 \; (\textbf{88,8\%}) \\
+Formas com contagem informativa ($>50$)           & 46.614 \; (11,2\%) \\
+\bottomrule
+\end{tabular}}
+\caption{O léxico empregado. A cauda é achatada: para 88,8\% das formas o termo
+$\ln P_{\mathrm{uni}}$ é a constante $-15{,}86$, e a correção de frequência degenera numa
+função-degrau de três níveis (cabeça, cauda, palavra ausente).}
+\label{tab:lexico}
+\end{table}
+
+\noindent O funcionamento das técnicas que o consomem decorre dessas propriedades. A consulta ao
+dicionário é \emph{exata}: a forma consta ou não consta, sem gradação. A sugestão de correção gera
+os candidatos a distância de edição menor ou igual a dois e ordena-os pela contagem, de modo que o
+desempate é sempre por frequência. Já o termo $\ln P_{\mathrm{uni}}$ do SLOR
+(Equação~\ref{eq:slor}) lê diretamente a contagem da forma: existindo ela, o valor é $\ln(c/N)$;
+não existindo, a implementação recorre a uma contagem-piso igual a 1, e o termo assume
+$\ln(1/N) \approx -19{,}8$ \textit{nats} --- o menor valor da escala. Como esse termo é
+\emph{subtraído}, cada forma ausente eleva o escore em cerca de $19{,}8/|s|$ \textit{nats}, o que em
+frase de dez palavras equivale a $\approx +2{,}0$. Daí a regra de composição de que a verificação
+ortográfica deve preceder qualquer medida baseada em frequência.
+
+\paragraph{O analisador morfossintático (\texttt{spaCy}, \texttt{pt\_core\_news\_sm} 3.8.0).} Não é
+um componente único, mas uma cadeia de modelos estatísticos independentes
+(\texttt{tok2vec}, \texttt{morphologizer}, \texttt{parser}, \texttt{lemmatizer},
+\texttt{attribute\_ruler}, \texttt{ner}). As técnicas de gramática e estrutura usam dois: o
+\texttt{morphologizer}, que escreve classe (\texttt{pos\_}) e traços (\texttt{morph}); e o
+\texttt{parser}, que escreve função (\texttt{dep\_}) e núcleo (\texttt{head}). A distinção importa
+porque os modos de falha pertencem a componentes específicos. O modelo ocupa 16,1\,MB e foi treinado
+no \textit{UD Portuguese Bosque} v2.8 (projeto Floresta Sintá(c)tica).
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llp{7.4cm}@{}}
+\toprule
+\textbf{Métrica} & \textbf{Valor} & \textbf{Leitura} \\
+\midrule
+\texttt{pos\_acc}   & 96,4\,\% & 1 classe gramatical errada a cada 28 \\
+\texttt{morph\_acc} & 95,0\,\% & \textbf{1 conjunto de traços errado a cada 20} \\
+\texttt{dep\_uas}   & 89,0\,\% & 1 arco com núcleo errado a cada 9 \\
+\texttt{dep\_las}   & 84,5\,\% & \textbf{1 arco com núcleo ou rótulo errado a cada 6,5} \\
+\texttt{lemma\_acc} & 96,9\,\% & --- \\
+\bottomrule
+\end{tabular}}
+\caption{Acurácia declarada do \texttt{pt\_core\_news\_sm}. Uma regra de concordância exige a
+conjunção de quatro predições (rótulo, classe do núcleo e dois conjuntos de traços): a técnica não
+pode ser melhor do que o pior de seus insumos.}
+\label{tab:spacy}
+\end{table}
+
+\paragraph{Demais recursos.} \texttt{LanguageTool} pt-BR (regras, 259\,MB);
+\texttt{Qwen2.5-1.5B-Instruct} (modelo causal); BERTimbau,
+\texttt{neuralmind/bert-base-portuguese-cased} (modelo mascarado). Testes em CPU.
+
+% =====================================================================
+\section{Dimensão 1 --- Ortografia e mecânica}
+% =====================================================================
+
+\subsection{Léxico com distância de edição}
+
+\paragraph{Funcionamento.} Um \emph{dicionário} (lista de formas válidas) acoplado a uma
+\emph{tabela de frequências}. O conhecimento mobilizado é uma lista fechada de formas atestadas ---
+nenhuma generalização, nenhum modelo.
+
+\paragraph{Como avalia a frase.} Em duas perguntas encadeadas. Primeiro, para cada palavra:
+\emph{consta do dicionário?} Se não consta, é erro, e o veredito é exato. Segundo, para sugerir
+correção: geram-se os candidatos a distância de edição (Levenshtein) menor ou igual a dois e
+escolhe-se o \emph{mais frequente}. Em ``anali\emph{z}aram'', os candidatos são \texttt{analisaram},
+\texttt{avalizaram}, \texttt{banalizaram} e \texttt{abalizaram}, e o desempate por frequência
+recupera a forma correta. A mecânica é verificada à parte por regras determinísticas: inicial
+maiúscula, pontuação final, ausência de espaço antes de sinal e de palavra duplicada.
+
+\paragraph{Aplicabilidade.} É a única dimensão de veredito \emph{exato} --- ou a palavra consta, ou
+não consta --- e a de menor custo (microssegundos). Deve preceder toda etapa estatística, porque
+palavra fora do vocabulário desregula qualquer medida baseada em frequência, como o SLOR evidencia
+adiante. Não tem concorrente: o \textit{parser} obtém 0/6 em ortografia, pois análise sintática é
+cega à grafia.
+
+\paragraph{Limites observados.} Três modos. (i) O \emph{erro de escolha} --- palavra existente
+empregada no lugar errado --- escapa integralmente: ``Ele estudou \emph{mais} não passou'' e
+``\emph{A} dois anos que não o vejo'' atravessam sem uma única forma desconhecida, por dependerem de
+contexto. É a distinção entre erro de \emph{grafia} (a palavra não existe) e erro de \emph{escolha}
+(a palavra existe, mas não é essa), e a segunda exige as camadas seguintes. (ii) A \emph{detecção} é
+exata, mas a \emph{sugestão} não: em ``praças do \emph{sentro}'', os candidatos incluem
+\texttt{centro} (34.981) e \texttt{dentro} (166.333), e o desempate por frequência elege o segundo
+--- diagnóstico certo, correção errada. (iii) Nome próprio, termo técnico e estrangeirismo são
+reportados como desconhecidos sem serem erros; a lista de exceções nunca se encerra.
+
+% =====================================================================
+\section{Dimensão 2 --- Gramática}
+% =====================================================================
+
+Quatro técnicas concorrentes, representando quatro mecanismos distintos: regra escrita à mão,
+estrutura linguística explícita, probabilidade causal e probabilidade bidirecional.
+
+\subsection{T1 --- Traços morfossintáticos sobre a árvore de dependências}
+
+\paragraph{Funcionamento.} Concordância é, formalmente, \textbf{igualdade de traços entre dois nós
+ligados na árvore sintática}. Não se trata de heurística, mas da transcrição da definição. Um
+\textit{parser} devolve, para cada \textit{token}, a classe, os traços (\texttt{Number},
+\texttt{Gender}, \texttt{Person}), a função e o \emph{núcleo} do qual depende.
+
+\paragraph{Como avalia a frase.} Percorrendo a árvore e comparando traços entre pares ligados: para
+cada dependente de função \texttt{det}, \texttt{amod} ou \texttt{acl} cujo núcleo seja
+\texttt{NOUN}/\texttt{PROPN}, verifica-se concordância nominal; para cada \texttt{nsubj} cujo núcleo
+seja \texttt{VERB}/\texttt{AUX}, concordância verbal.
+
+\begin{lstlisting}
+def erros_concordancia(doc):
+    erros = []
+    for t in doc:
+        n, hn = t.morph.get("Number"), t.head.morph.get("Number")
+        if t.dep_ in ("det","amod","acl") and t.head.pos_ in ("NOUN","PROPN"):
+            if n and hn and n != hn:
+                erros.append(f"nominal: {t.text} x {t.head.text}")
+        if t.dep_ in ("nsubj","nsubj:pass") and t.head.pos_ in ("VERB","AUX"):
+            if n and hn and n != hn:
+                erros.append(f"verbal: {t.text} x {t.head.text}")
+    return erros
+\end{lstlisting}
+
+\noindent A saída não é uma nota, e sim a identificação do \textit{token}, do traço violado e do
+termo contra o qual se opõe: \texttt{verbal: pesquisadores(Plur) x analisou(Sing)}. Dois detalhes do
+trecho não são acessórios. A inclusão de \texttt{acl} é o que permite detectar a concordância do
+particípio: em Universal Dependencies, ``coletados'' em \emph{os dados coletados} é etiquetado
+\texttt{VERB} com \texttt{VerbForm=Part} e função \texttt{acl} --- não \texttt{amod} ---, de modo que
+sua omissão suprimiria o defeito nominal mais frequente do corpus. E a guarda \texttt{if n and hn}
+é necessária porque muitos \textit{tokens} (preposições, advérbios) não possuem traço de número.
+
+\paragraph{Aplicabilidade.} Línguas de morfologia rica --- o português é uma ---, e sempre que se
+exija \emph{localização exata} do \textit{token} culpado. Custa $\sim$4\,ms e é a única família,
+junto às regras escritas à mão, que produz diagnóstico acionável em vez de escore.
+
+\paragraph{Limites observados.} Os dois modos principais pertencem ao \texttt{morphologizer}, não ao
+\texttt{parser}, e a atribuição é verificável. Em ``Os alunos entregaram os \emph{trabalho}'', a
+árvore está correta --- o arco \texttt{det} liga corretamente ``os'' a ``trabalho'' ---, mas o
+\texttt{morphologizer} atribui \texttt{Number=Plur} à forma singular escrita, e a técnica nada
+encontra; corrigido à mão apenas o traço, mantida a mesma árvore, a regra dispara e localiza o erro.
+A causa é que os traços não são \emph{lidos} da forma, e sim \emph{preditos} do contexto por um
+modelo estatístico: em ``os \underline{\hspace{1em}} antes do prazo'', o contexto indica plural. O
+segundo modo é o mesmo fenômeno invertido: em ``para \emph{a paciente}'', substantivo comum de dois
+gêneros, o componente precisa emitir um valor, elege \texttt{Masc} e cria conflito com o artigo
+correto.
+
+Um terceiro modo pertence ao etiquetador. Na sonda \texttt{vazia} (``Ideias verdes incolores dormem
+furiosamente''), o modelo etiqueta ``verdes'' e ``furiosamente'' como \texttt{NOUN}, desfazendo a
+cadeia de modificação; a mesma sequência lexical em construção usual (``As ideias verdes e
+incolores dormem de modo furioso'') é analisada corretamente. Em termos gerais: esses componentes
+foram treinados em \textit{treebank} de texto correto e são otimizados para produzir a análise mais
+\emph{plausível}, ao passo que um detector de erros requer a mais \emph{fiel}. A oposição é
+estrutural, e é a limitação de fundo de toda a família.
+
+\subsection{T2 --- Regras escritas à mão (LanguageTool)}
+
+\paragraph{Funcionamento.} A gramática normativa já está codificada em livros; um verificador
+transcreve essas regras como padrões sobre \textit{tokens}, lemas e etiquetas morfológicas.
+``Artigo plural seguido de substantivo singular'' torna-se um padrão que dispara.
+
+\paragraph{Como avalia a frase.} Casamento de padrões sobre a sequência anotada; cada disparo
+retorna o identificador da regra violada, o que permite exibir ao usuário a regra em texto pronto.
+
+\paragraph{Aplicabilidade.} Erros frequentes e bem delimitados, e sempre que for preciso
+\emph{explicar a regra} a quem escreveu --- nenhuma outra família entrega ``isto viola concordância
+nominal'' como texto pronto. Inclui dicionário próprio, o que a torna forte em ortografia (6/6).
+
+\paragraph{Limites observados.} A cobertura iguala exatamente o trabalho humano investido
+\emph{naquela língua}, e varia brutalmente entre idiomas: mantida por contribuidores voluntários, a
+regra de português está muito atrás da de inglês e alemão. Mede-se 1/6 em concordância verbal.
+Adicionalmente, não generaliza para construções não previstas e produz falsos positivos em texto
+literário ou técnico.
+
+\subsection{T3 e T4 --- Aceitabilidade por modelo de linguagem}
+
+Ambas partem do mesmo princípio: uma frase agramatical é improvável sob um modelo de linguagem bem
+treinado; basta ler a probabilidade, sem regras e sem anotação. O problema está na normalização,
+tratado na Seção~\ref{sec:formulas}. Em resumo de funcionamento: o \textbf{SLOR} lê a probabilidade
+sob um modelo \emph{causal} (que vê apenas o contexto à esquerda) e desconta a frequência isolada
+das palavras; o \textbf{PLL} mascara cada \textit{token} sob um modelo \emph{mascarado} (que vê os
+dois lados) e soma o log da probabilidade do original.
+
+\paragraph{Aplicabilidade --- a regra que decide o uso.} O PLL prevalece \emph{dentro} do par
+mínimo, onde as duas frases compartilham o vocabulário e o viés de frequência se cancela; o SLOR
+prevalece \emph{entre} frases de conteúdos diferentes, por ser o único com correção de frequência.
+Empregar um no terreno do outro é o erro típico. Nenhum dos dois localiza o defeito: devolvem um
+número para a frase inteira.
+
+\subsection{Resultados comparados}
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lcc@{\hspace{2em}}cc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{Detectores (/6)}} & \multicolumn{2}{c}{\textbf{Pontuadores (pares /6)}} \\
+\cmidrule(r){2-3}\cmidrule(l){4-5}
+\textbf{Defeito} & T1 \textit{parser} & T2 LangTool & T3 SLOR & T4 PLL \\
+\midrule
+correta        & 0 & 0 & --- & --- \\
+ortografia     & 0 & \textbf{6} & 5 & 6 \\
+conc.\ nominal & 5 & 4 & 6 & 6 \\
+conc.\ verbal  & \textbf{6} & \textbf{1} & 6 & 6 \\
+fragmento      & 0 & 0 & 6 & 6 \\
+anomalia       & 0 & 0 & 6 & 6 \\
+\midrule
+\textbf{Total pares} & & & \textbf{29/30} & \textbf{30/30} \\
+\textbf{Custo/frase}  & $\sim$4\,ms & $\sim$0{,}4\,s & $\sim$0{,}5\,s & $\sim$0{,}4\,s \\
+\bottomrule
+\end{tabular}}
+\caption{Gramática. O \textit{parser} detecta concordância verbal 6/6 contra 1/6 do LanguageTool
+(ferramenta madura de 259\,MB), a $\sim$1\% do custo; o inverso vale na ortografia. São
+complementares, não ordenáveis.}
+\label{tab:gramatica}
+\end{table}
+
+\noindent Cabe ressalva quanto ao custo: os $\sim$0,4\,s do LanguageTool decorrem de um servidor
+Java acionado por chamada HTTP a cada frase --- mede-se a integração, não o algoritmo. Apenas a
+diferença de \emph{ordem de grandeza} (4\,ms contra centenas) é conclusão segura; a ordem relativa
+entre T2, T3 e T4 variou entre execuções.
+
+Quanto aos pontuadores, as sondas expõem a troca que a Tabela~\ref{tab:gramatica} esconde:
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Sonda} & \textbf{SLOR} & \textbf{PLL} \\
+\midrule
+\texttt{rara\_correta} (correta!) & $\mathbf{+2{,}01}$ & $\mathbf{-2{,}45}$ \\
+\texttt{vazia} (sem sentido)      & $-0{,}90$ & $-1{,}92$ \\
+\texttt{embaralhada\_1} (agramatical) & $-0{,}54$ & $-6{,}85$ \\
+\texttt{embaralhada\_2} (agramatical) & $\mathbf{+1{,}43}$ & $-6{,}89$ \\
+\bottomrule
+\end{tabular}}
+\caption{O PLL atribui à frase correta de vocabulário raro nota inferior à da frase sem sentido; o
+SLOR falha no sentido oposto, favorecendo palavras embaralhadas.}
+\label{tab:sondas-gram}
+\end{table}
+
+\noindent Os dois resultados decorrem da forma das fórmulas. O PLL não subtrai referência alguma, e
+por isso pune vocabulário raro. O SLOR subtrai frequência e, ao encontrar palavra fora do léxico,
+recorre à contagem-piso: em \texttt{embaralhada\_2}, uma das formas está ausente do léxico
+e contribui com $\ln(1/N) \approx -19{,}8$, valor que, subtraído, infla o escore em cerca de
+$19{,}8/|s|$ \textit{nats}. Numa frase de dez palavras isso equivale a $\approx +2{,}0$ --- da mesma
+ordem de grandeza que a separação entre uma frase correta ($\approx 5{,}8$) e uma anomalia semântica
+($\approx 3{,}8$).
+
+% =====================================================================
+\section{Dimensão 3 --- Estrutura}
+% =====================================================================
+
+\subsection{E1 --- Teste do núcleo predicativo (teste da raiz)}
+
+\paragraph{Funcionamento.} Uma sentença exige um predicado. Numa árvore de dependências isso é
+verificável num ponto único: a \textbf{raiz} deve ser um verbo finito, ou um predicativo acompanhado
+de cópula. Não é heurística --- ``toda sentença tem predicado'' é verdade sintática, e a árvore
+expõe o predicado num nó só.
+
+\paragraph{Como avalia a frase.} Duas linhas:
+
+\begin{lstlisting}
+def analisar_estrutura(doc):
+    raiz = [t for t in doc if t.dep_ == "ROOT"][0]
+    predicado = raiz.pos_ in ("VERB","AUX") or any(f.dep_ == "cop" for f in raiz.children)
+    return raiz, predicado
+\end{lstlisting}
+
+\paragraph{Por que o teste incide sobre a raiz, e não sobre a presença de verbo.} O teste ingênuo
+--- ``existe verbo na frase?'' --- aprova o fragmento: ``Os pesquisadores que analisaram os dados
+coletados'' contém exatamente os mesmos dois verbos da frase correta. O que muda é a \emph{posição}
+de ``analisaram'' na árvore: o pronome ``que'' o rebaixa a oração relativa e promove o substantivo a
+raiz. Um único \textit{token} converte oração em fragmento, e apenas a estrutura registra o fato. A
+cláusula da cópula tampouco é acessória: em predicações nominais (\emph{O carro é azul}) a raiz é o
+predicativo \texttt{azul}/\texttt{ADJ}, de modo que, sem ela, toda construção copular seria
+classificada como fragmento.
+
+\paragraph{Aplicabilidade.} Sempre; é barato ($\sim$3,5\,ms), binário e localiza (aponta a raiz).
+Registrou 6/6 no alvo com zero falso positivo em 30 frases --- a melhor relação
+custo/exatidão/localização entre todas as técnicas levantadas.
+
+\paragraph{Limites.} Mede apenas \emph{completude}. Não diz nada sobre qualidade além disso, e é
+honesto quanto ao próprio escopo.
+
+\subsection{E2, E3 --- Índices de complexidade e comprimento de dependência}
+
+\paragraph{Funcionamento e método.} E2 extrai da árvore a profundidade máxima (encaixamento), o
+número de orações (raiz mais subordinadas) e a ramificação média. E3 mede o comprimento médio dos
+arcos e conta arcos cruzados. A fundamentação é a hipótese de minimização de comprimento de
+dependência (Futrell et al.): línguas tendem a aproximar itens sintaticamente relacionados, e
+distância grande indica carga de processamento.
+
+\paragraph{Aplicabilidade.} Caracterização descritiva de complexidade --- comparar registros,
+estimar dificuldade de leitura de um texto. Não são detectores de erro.
+
+\paragraph{Limites observados.} A ramificação média é \emph{constante} em 1,00, por identidade
+matemática: numa árvore de $n$ nós há $n-1$ arcos, e a média de filhos por nó tende a 1. Os arcos
+cruzados foram 0 em todo o corpus --- português escrito comum é projetivo. Restam profundidade e
+número de orações, que de fato separam o fragmento (4,8 e 2,7 contra 3,8 e 1,7), porém de modo
+redundante com E1, que é mais barato e binário.
+
+\subsection{E4 --- Legibilidade (Flesch adaptado)}
+
+\paragraph{Funcionamento e método.} Combina duas contagens de superfície --- palavras por frase e
+sílabas por palavra --- numa fórmula linear (Equação~\ref{eq:ilf}). Nenhuma análise linguística está
+envolvida.
+
+\paragraph{Aplicabilidade.} Comparar a densidade lexical de \emph{textos} de mesmo gênero. É a
+técnica mais barata do estudo ($\sim$0,01\,ms).
+
+\paragraph{Limites observados --- e o resultado é forte.} A legibilidade está \emph{anticorrelacionada}
+com a correção. O fragmento recebe 38,5, superior à frase correta (26,0), porque acrescentar
+``que'' --- palavra curta e monossilábica --- \emph{reduz} a média de sílabas por palavra e
+\emph{eleva} o índice. \texttt{embaralhada\_2} recebe 61,1, pois embaralhar não altera contagem
+alguma. E \texttt{rara\_correta}, frase correta de vocabulário técnico, recebe $-$109,8. Como
+pontuador de pares alcança 2/30 --- não meramente inútil, mas \emph{sistematicamente invertido},
+pois o acaso corresponderia a 15/30. Note-se ainda que \texttt{correta}, \texttt{ortografia} e
+\texttt{conc.\ nominal} recebem valor idêntico, por terem as mesmas palavras e sílabas: erro de
+grafia e de concordância são invisíveis à fórmula. Por fim, o índice foi calibrado para
+\emph{textos}; aplicado a uma frase isolada, o primeiro termo reduz-se ao comprimento dela, e os
+valores extrapolam a faixa teórica de 0--100 nos dois sentidos.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+\textbf{Defeito} & \textbf{prof.} & \textbf{orações} & \textbf{ramif.} & \textbf{dep.\ len} & \textbf{cruz.} & \textbf{Flesch} \\
+\midrule
+correta        & 3{,}8 & 1{,}7 & 1{,}00 & 1{,}43 & 0 & 26{,}0 \\
+conc.\ verbal  & 4{,}0 & 1{,}7 & 1{,}00 & 1{,}39 & 0 & 31{,}1 \\
+fragmento      & \textbf{4{,}8} & \textbf{2{,}7} & 1{,}00 & 1{,}50 & 0 & \textbf{38{,}5} \\
+anomalia       & 3{,}8 & 1{,}7 & 1{,}00 & 1{,}43 & 0 & 32{,}7 \\
+\bottomrule
+\end{tabular}}
+\caption{Estrutura (médias). \texttt{ramif.} é constante por identidade matemática e \texttt{cruz.}
+é 0 em todo o corpus; a coluna Flesch cresce na direção errada.}
+\label{tab:estrutura}
+\end{table}
+
+% =====================================================================
+\section{Dimensão 4 --- Semântica}
+% =====================================================================
+
+Nesta dimensão a frase já passou por ortografia, concordância e estrutura. ``Os pesquisadores
+\emph{beberam} os dados'' possui árvore impecável e concordância perfeita; o que está errado é uma
+\emph{restrição de seleção} --- \emph{beber} exige paciente líquido. A informação necessária não
+está na morfologia nem na árvore, e sim no significado das palavras.
+
+\subsection{S1 --- Surpresa por \textit{token}}
+
+\paragraph{Funcionamento e método.} A surpresa é $-\ln P(\textit{token} \mid \text{contexto})$,
+grandeza que o modelo causal já calcula. Onde a frase viola uma expectativa, a surpresa dispara
+\emph{naquele token}; toma-se o pico como candidato a defeito.
+
+\paragraph{Aplicabilidade.} Quando se deseja localização barata a partir de um modelo já carregado.
+É a única medida causal que localiza.
+
+\paragraph{Limites observados.} Dois. Primeiro, o \emph{primeiro token é sempre um pico falso}: sem
+contexto anterior, a palavra inicial de qualquer frase é imprevisível, e uma regra ingênua ``o pico
+é o defeito'' acusaria a primeira palavra de toda frase perfeita --- daí descartá-la. Segundo, a
+escala \emph{não é absoluta}: um limiar fixo de 12 \textit{nats} detecta apenas 4/6 das anomalias,
+perdendo ``cantou'' (9,1) e ``ferveram'' (9,2), verbos comuns cuja surpresa é naturalmente baixa.
+
+\subsection{S2 --- Plausibilidade do verbo por preenchimento mascarado}
+
+\paragraph{Funcionamento.} Duas camadas cooperam. O \textit{parser} localiza o verbo da raiz --- isto
+é, decide \emph{onde} perguntar. O modelo mascarado apaga esse verbo e informa o que esperava na
+posição --- isto é, \emph{o que deveria estar ali}.
+
+\paragraph{Como avalia a frase.} Substitui-se o verbo-raiz por uma marca de máscara e lê-se a
+distribuição do modelo naquela posição. O veredito não é o valor absoluto, mas a \emph{margem} entre
+o melhor preenchimento esperado e o verbo efetivamente escrito (Equação~\ref{eq:margem}).
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llcllc@{}}
+\toprule
+\textbf{Base} & \textbf{Verbo (correta)} & \textbf{Margem} & \textbf{Verbo (anomalia)} & & \textbf{Margem} \\
+\midrule
+B1 & analisaram  & 4{,}10 & beberam    & & \textbf{14{,}99} \\
+B2 & instalou    & 0{,}00 & digeriu    & & \textbf{24{,}99} \\
+B3 & entregaram  & 5{,}17 & evaporaram & & \textbf{17{,}17} \\
+B4 & receitou    & 6{,}82 & cantou     & & \textbf{13{,}24} \\
+B5 & contrataram & 6{,}17 & ferveram   & & \textbf{19{,}02} \\
+B6 & denunciaram & 4{,}04 & assaram    & & \textbf{13{,}22} \\
+\bottomrule
+\end{tabular}}
+\caption{Margem do verbo-raiz, em \textit{nats}. As corretas não ultrapassam 6,82 e as anomalias não
+descem abaixo de 13,22: um limiar de 10,0 situa-se no meio de um vão de 6,4 \textit{nats}.}
+\label{tab:margens}
+\end{table}
+
+\paragraph{A técnica é diagnóstica, e não apenas discriminativa.} Mascarado o verbo, a lista dos
+cinco preenchimentos mais prováveis é \emph{idêntica} na frase correta e na anômala (``usaram,
+consideraram, apresentaram, usam, consideram'', em B1): o contexto é o mesmo, logo a expectativa do
+modelo é a mesma, e o que muda é apenas o quanto a palavra escrita se afasta dela. A saída informa
+não só que há defeito, mas o que deveria ocupar a posição --- propriedade que nenhum pontuador
+global possui.
+
+\paragraph{Aplicabilidade.} Anomalias de seleção verbal, em frases já bem formadas. Custa
+$\sim$38\,ms, contra $\sim$0,5\,s de S1, por exigir um único passe. Decide por margem relativa, e
+portanto sem depender de escala absoluta --- razão pela qual recupera ``cantou'' e ``ferveram'',
+que o limiar fixo de surpresa perdia.
+
+\paragraph{Limites.} \emph{Só olha o verbo.} Não se aplica a fragmentos (sem verbo na raiz, não há o
+que mascarar) e é cega a defeitos alojados fora dessa posição: ``Ideias verdes incolores dormem
+furiosamente'' passa, pois ``dormem'' cabe --- o sem-sentido está na combinação dos adjetivos.
+Ademais, o escopo estreito que permite a boa normalização é o mesmo que cria o ponto cego.
+
+\subsection{S3 --- \textit{Embeddings}}
+
+\paragraph{Funcionamento e método.} Representa-se a frase por um vetor (média das representações de
+seus \textit{tokens}) e mede-se similaridade do cosseno com uma frase de referência.
+
+\paragraph{Aplicabilidade.} Similaridade e agrupamento temático. \textbf{Não} serve para detectar
+anomalia semântica.
+
+\paragraph{Limites observados.} O ponto cego é conhecido e foi reproduzido: a anomalia situa-se a
+0,928 da base correta, ao passo que a negação (``cresceu'' vs.\ ``não cresceu'', sentidos opostos)
+situa-se a 0,966 --- \emph{mais} próxima. A média de vetores preserva assunto e descarta polaridade.
+
+\subsection{S4 --- LLM como pontuador}
+
+Acerta 4/6 e custa $\sim$1,6\,s, errando justamente nos verbos de leitura idiomática possível
+(``ferver de gente''). Tratado em detalhe na Seção~\ref{sec:llm}.
+
+% =====================================================================
+\section{Dimensão 5 --- Coesão e coerência}
+% =====================================================================
+
+Esta dimensão não cabe numa frase. Distinguem-se duas noções: \textbf{coesão}, os elos de superfície
+(repetição, pronomes, conectivos, cadeias de referência), e \textbf{coerência}, a sustentação do
+texto como todo. Coesão é necessária e \emph{insuficiente}: um texto que repete a mesma palavra em
+toda frase é altamente coeso e pode não dizer nada.
+
+\paragraph{As quatro técnicas.} \textbf{C1} mede sobreposição lexical entre frases vizinhas.
+\textbf{C2} é uma versão simplificada do \textit{entity grid} (Barzilay \& Lapata), que modela
+coerência pelas transições de entidades entre frases. \textbf{C3} mede similaridade média entre
+\textit{embeddings} de frases consecutivas. \textbf{C4} calcula a log-probabilidade condicional de
+cada frase dadas as anteriores: uma continuação coerente é mais previsível que um salto de assunto.
+
+\paragraph{O método de validação próprio da dimensão.} O \emph{teste de embaralhamento}: um medidor
+de coerência que preste deve pontuar a ordem original acima de suas permutações. É objetivo e não
+exige anotação.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Parágrafo} & \textbf{C1 lex.} & \textbf{C2 grid} & \textbf{C3 emb.} & \textbf{C4 LM} \\
+\midrule
+coerente\_A  & 0{,}00 & 0{,}00 & 0{,}671 & $-1{,}970$ \\
+coerente\_B  & 0{,}00 & 0{,}00 & 0{,}671 & $-2{,}132$ \\
+sem\_relacao & 0{,}00 & 0{,}00 & 0{,}548 & $-2{,}975$ \\
+coeso\_vazio & \textbf{1{,}00} & \textbf{0{,}33} & \textbf{0{,}780} & $-1{,}932$ \\
+\bottomrule
+\end{tabular}}
+\caption{Coerência. C1 e C2 atribuem 0,00 aos parágrafos bem escritos e nota máxima ao
+\texttt{coeso\_vazio}, que repete a mesma palavra --- favorecem a repetição, não a coerência.}
+\label{tab:coerencia}
+\end{table}
+
+\paragraph{Limites observados.} O zero atribuído aos parágrafos bem escritos não é defeito deles, e
+sim virtude: por variarem o vocabulário (\emph{sensores} $\rightarrow$ \emph{aparelhos}
+$\rightarrow$ \emph{medições} $\rightarrow$ \emph{registros}; \emph{equipe} $\rightarrow$
+\emph{grupo}), nenhum par de frases vizinhas compartilha lema. A cadeia de referência existe, mas é
+\emph{semântica}, e a comparação de lemas não a alcança. O \textit{entity grid} original ataca o
+problema resolvendo correferência, recurso indisponível aqui.
+
+No teste de embaralhamento, C1 e C2 aparecem em ``1\textordmasculine/24'', mas com 24 empates no
+topo: toda permutação recebe a mesma nota, e o primeiro lugar torna-se degenerado. Já o LM
+condicional (C4), única técnica com algum sinal, coloca \texttt{coerente\_A} em
+1\textordmasculine/24 e \texttt{coerente\_B} em \textbf{9\textordmasculine/24} --- isto é, o segundo
+parágrafo contradiz o primeiro. \textbf{Conclusão de aplicabilidade: com os recursos disponíveis ---
+sem resolução de correferência, sem \textit{parser} de discurso --- não há técnica confiável de
+coerência}, e o resultado honesto é registrar a ausência em vez de reportar um número sem validade.
+
+% =====================================================================
+\section{O juiz por LLM}
+\label{sec:llm}
+% =====================================================================
+
+\paragraph{Funcionamento e método.} Todos os instrumentos anteriores são especialistas: cada um vê
+uma dimensão e é cego às demais. Um LLM munido de \textbf{rubrica} --- uma instrução que descreve os
+critérios e a escala --- é o único juiz que responde sobre todas de uma vez, e em linguagem natural,
+o que o torna o único apto a \emph{explicar} o problema a quem escreveu.
+
+\paragraph{Aplicabilidade.} Revisão assistida, em que ``o verbo não concorda com o sujeito'' vale
+mais que ``SLOR = 4,95''. Com juízes de grande porte, a correlação com avaliadores humanos é a mais
+alta entre os métodos automáticos de qualidade aberta. O preço é que a nota provém de outro modelo
+falível, com vieses documentados:
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Viés} & \textbf{Sintoma} & \textbf{Mitigação} \\
+\midrule
+posição         & preferir a primeira opção apresentada & julgar duas vezes, com a ordem trocada \\
+verbosidade     & preferir a resposta mais longa        & rubrica que premie a concisão \\
+autopreferência & preferir o próprio estilo             & juiz de família distinta da do avaliado \\
+\bottomrule
+\end{tabular}}
+\caption{Vieses documentados do juiz por LLM e as respectivas mitigações.}
+\label{tab:vieses}
+\end{table}
+
+\paragraph{Limites observados.} Sobre as frases do corpus, o juiz (\texttt{Qwen2.5-1.5B}) revelou
+quatro falhas. (i) Não discriminou: erro de concordância, anomalia semântica e frase sem sentido
+receberam a mesma nota 4. (ii) Não justificou: embora a rubrica exigisse ``Nota: N --- problema'', a
+saída trouxe apenas a nota. (iii) Sensibilidade ao formato: pelo \textit{template} de chat oficial,
+respondeu ``sem problemas'' às quatro frases, inclusive à agramatical e à anômala. (iv) Viés de
+posição: ao comparar duas frases, apontou ``B'' nas duas ordens --- seguiu a posição, não o
+conteúdo.
+
+\paragraph{Leitura.} Onde existe detector determinístico para a dimensão, ele supera o LLM --- mais
+barato, mais exato e mais explicativo. A qualidade do julgamento escala com o porte do juiz, e um
+modelo de 1,5\,B fica aquém do necessário para a gramática do português; ainda assim, os vieses de
+posição e de verbosidade e a sensibilidade ao \textit{prompt} não desaparecem com modelos maiores.
+Julgar duas vezes, com a ordem trocada, é o mínimo exigível.
+
+% =====================================================================
+\section{As fórmulas: uma família, não quatro}
+\label{sec:formulas}
+% =====================================================================
+
+A medida óbvia de aceitabilidade --- a \textbf{perplexidade} --- não serve, por confundir \emph{raro}
+com \emph{errado}: na execução, uma frase correta de vocabulário técnico recebe perplexidade
+$\approx$114 contra $\approx$61 de uma frase banal também correta, punição que é puro efeito de
+vocabulário. As medidas abaixo corrigem essa distorção por caminhos diferentes.
+
+\textbf{SLOR} (\textit{Syntactic Log-Odds Ratio}) desconta da probabilidade da frase aquilo que ela
+já teria pela frequência isolada das palavras, e normaliza pelo comprimento:
+\begin{equation}
+\mathrm{SLOR}(s) = \frac{\ln P_{\mathrm{LM}}(s) - \ln P_{\mathrm{uni}}(s)}{|s|}.
+\label{eq:slor}
+\end{equation}
+O sinal é interpretável: valor positivo indica que a estrutura \emph{acrescenta} probabilidade sobre
+o sorteio independente de palavras; valor negativo, que a sequência é anti-estrutural --- o modelo
+teria previsto melhor tratando as palavras como independentes. As sondas
+\texttt{embaralhada\_1} ($-0{,}54$) e \texttt{vazia} ($-0{,}90$) caem abaixo de zero, e é por essa
+via que se detectam defeitos \emph{globais}, que nenhuma técnica localizada alcança.
+
+\textbf{PLL} (\textit{Pseudo-Log-Likelihood}) mascara cada \textit{token} $s_i$ e soma o log da
+probabilidade do original, avaliando cada posição com contexto dos dois lados. A definição canônica
+(Salazar et al., 2020) é a \emph{soma}:
+\begin{equation}
+\mathrm{PLL}(s) = \sum_{i=1}^{|s|} \ln P_{\mathrm{MLM}}(s_i \mid s_{\setminus i}).
+\label{eq:pll}
+\end{equation}
+O qualificativo \emph{pseudo} é literal: as $|s|$ parcelas se sobrepõem --- cada uma pressupõe
+corretas todas as demais ---, de modo que a soma não constitui $\ln P(s)$. É um escore que se
+comporta como probabilidade, e cujo valor absoluto, por isso, não é interpretável; apenas
+comparações o são.
+
+\subsection{PLL como soma e como média}
+\label{sec:pllsomamedia}
+
+A escolha entre somar e normalizar não é cosmética: define \emph{quais frases podem ser comparadas
+entre si}.
+
+\paragraph{A soma é grandeza extensiva.} Cada posição acrescenta uma parcela negativa; logo, o
+escore piora monotonicamente com o comprimento, ainda que a frase esteja perfeitamente correta.
+Medidas quatro frases corretas de comprimento crescente:
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Frase (todas corretas)} & \textbf{$|s|$} & \textbf{PLL soma} & \textbf{PLL média} \\
+\midrule
+O gato dormiu.                                       & 6  & $-7{,}59$  & $-1{,}27$ \\
+O gato dormiu no sofá da sala.                       & 11 & $-17{,}53$ & $-1{,}59$ \\
+O gato dormiu no sofá da sala durante toda a tarde\dots & 17 & $-20{,}87$ & $-1{,}23$ \\
+\dots de domingo, enquanto a chuva caía lá fora.     & 25 & $\mathbf{-28{,}79}$ & $-1{,}15$ \\
+\bottomrule
+\end{tabular}}
+\caption{Efeito isolado do comprimento. Pela soma, a frase mais longa recebe escore quase quatro
+vezes pior que a mais curta, embora ambas estejam corretas; a média permanece na faixa estreita de
+$-1{,}15$ a $-1{,}59$.}
+\label{tab:pllsoma}
+\end{table}
+
+\noindent Comparar frases de comprimentos distintos pela soma, portanto, mede sobretudo comprimento.
+
+\paragraph{A média é grandeza intensiva.} Dividir pelo número de \textit{tokens} produz um escore
+por posição, comparável entre comprimentos:
+\begin{equation}
+\overline{\mathrm{PLL}}(s) = \frac{1}{|s|}\sum_{i=1}^{|s|} \ln P_{\mathrm{MLM}}(s_i \mid s_{\setminus i}).
+\label{eq:pllmedia}
+\end{equation}
+O preço é descartar a informação de que uma frase longa acumula mais evidência: uma sentença de
+vinte \textit{tokens} com média $-1{,}0$ e outra de cinco com a mesma média não são igualmente bem
+atestadas, e a média as iguala. A normalização também é o que torna $\overline{\mathrm{PLL}}$
+homogêneo ao SLOR (Equação~\ref{eq:slor}), igualmente dividido por $|s|$, permitindo que ambos
+figurem na mesma tabela.
+
+\paragraph{Dentro do par mínimo, a escolha é indiferente.} Como as duas frases compartilham quase
+todos os \textit{tokens}, $|s|$ é constante ou varia em uma unidade, e as duas formas induzem a
+mesma ordem:
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Variante (base B1)} & \textbf{$|s|$} & \textbf{soma} & \textbf{média} & \textbf{soma acerta?} & \textbf{média acerta?} \\
+\midrule
+correta        & 12 & $-3{,}97$  & $-0{,}33$ & (referência) & (referência) \\
+ortografia     & 12 & $-13{,}58$ & $-1{,}13$ & sim & sim \\
+conc.\ nominal & 12 & $-11{,}96$ & $-1{,}00$ & sim & sim \\
+conc.\ verbal  & 12 & $-13{,}70$ & $-1{,}14$ & sim & sim \\
+fragmento      & 13 & $-18{,}43$ & $-1{,}42$ & sim & sim \\
+anomalia       & 12 & $-15{,}02$ & $-1{,}25$ & sim & sim \\
+\bottomrule
+\end{tabular}}
+\caption{As duas formas ordenam identicamente as cinco variantes contra a base. É por isso que o
+placar de 30/30 em pares mínimos independe da normalização --- inclusive no fragmento, único caso
+em que $|s|$ difere.}
+\label{tab:pllpares}
+\end{table}
+
+\paragraph{Regra de emprego.} Use a \emph{soma} quando a comparação for entre frases de mesmo
+comprimento e se quiser preservar a magnitude acumulada da evidência; use a \emph{média} sempre que
+os comprimentos variarem, isto é, em qualquer aplicação sobre texto real. A literatura registra
+ainda uma terceira forma, o \textbf{PenLP}, com normalização mais suave, $\ln P(s)/((5+|s|)/6)^{\alpha}$,
+que atenua o efeito do comprimento sem cancelá-lo por completo --- alternativa útil quando a média
+se mostra excessivamente permissiva com frases longas. A implementação empregada neste trabalho usa
+a média (Equação~\ref{eq:pllmedia}).
+
+\textbf{Margem do verbo mascarado} avalia uma única posição --- a do verbo-raiz $v$, indicada pelo
+\textit{parser}:
+\begin{equation}
+\mathrm{margem}(s) = \max_{w} \ln P_{\mathrm{MLM}}(w \mid s_{\setminus v})
+                     \; - \; \ln P_{\mathrm{MLM}}(s_v \mid s_{\setminus v}).
+\label{eq:margem}
+\end{equation}
+
+\textbf{Legibilidade} (Flesch adaptado ao português, Martins et al.\ 1996):
+\begin{equation}
+\mathrm{ILF} = 248{,}835 - 1{,}015\,\frac{\text{palavras}}{\text{frases}}
+                          - 84{,}6\,\frac{\text{sílabas}}{\text{palavras}}.
+\label{eq:ilf}
+\end{equation}
+A constante difere da do Flesch original (206,835) porque a palavra portuguesa é mais longa que a
+inglesa; as duas inclinações permaneceram inalteradas, ou seja, houve deslocamento do intercepto e
+não reajuste do modelo.
+
+\subsection{A relação entre as três primeiras}
+
+Confrontadas, as Equações~\ref{eq:slor} e~\ref{eq:margem} exibem forma idêntica --- uma
+log-probabilidade observada menos uma linha de base --- e a Equação~\ref{eq:pll} é o caso em que a
+linha de base é nula. O que as distingue são duas escolhas: o \emph{escopo} (a frase inteira ou uma
+posição) e a \emph{referência subtraída}. Cada modo de falha decorre da segunda:
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llllcl@{}}
+\toprule
+\textbf{Medida} & \textbf{Modelo} & \textbf{Escopo} & \textbf{Referência subtraída} & \textbf{Localiza?} & \textbf{Custo} \\
+\midrule
+S1 surpresa & causal     & 1 posição (o pico)   & nenhuma              & sim & $\sim$0,5\,s \\
+SLOR        & causal     & frase inteira        & frequência unigrama  & não & $\sim$0,5\,s \\
+PLL         & mascarado  & todas as posições    & nenhuma              & não & $\sim$0,4\,s \\
+S2 (cru)    & mascarado  & 1 posição (a raiz)   & nenhuma              & sim & $\sim$38\,ms \\
+\textbf{margem} & mascarado & 1 posição (a raiz) & \textbf{teto local}  & sim & \textbf{$\sim$38\,ms} \\
+\bottomrule
+\end{tabular}}
+\caption{As medidas por modelo de linguagem, organizadas por escopo e referência. Sem referência,
+pune-se o vocabulário raro (S1, PLL, S2 cru); com referência de frequência, quebra-se diante de
+palavra fora do léxico (SLOR); com referência no teto local, é preciso saber \emph{qual} posição
+interrogar.}
+\label{tab:familia}
+\end{table}
+
+\paragraph{S2 é uma parcela do PLL.} A relação entre as duas não é analógica, mas literal: o verbo
+mascarado corresponde ao termo da soma da Equação~\ref{eq:pll} na posição do verbo-raiz. Medida a
+base B1, a diferença de PLL entre a frase correta e a anômala é de 11,05 \textit{nats}, dos quais
+8,94 (\textbf{80,9\,\%}) provêm exclusivamente desse termo: calcular as demais parcelas acrescenta
+menos de um quinto do sinal a um custo dez vezes maior. Cabe uma ressalva de implementação --- o PLL
+mascara uma subpalavra por vez, de modo que o sufixo flexional permanece visível, ao passo que S2
+substitui a palavra inteira por uma única marca; S2 é, portanto, aquele termo medido de forma mais
+estrita. Como apenas 2 dos 12 verbos do corpus cabem numa subpalavra, e a implementação lê a
+probabilidade da \emph{primeira} peça, S2 é rigorosamente uma aproximação de
+$\ln P(\text{verbo} \mid \text{contexto})$ pela sua subpalavra inicial.
+
+\paragraph{Consequência para a escolha da técnica.} A referência que melhor normaliza o escore --- o
+teto local --- só é definível \emph{numa posição determinada}. Segue que o \textit{parser} não é
+conveniência de engenharia, mas pré-condição da melhor normalização disponível: sem ele não há como
+saber onde interrogar o modelo. É a formulação precisa do princípio de que combinar camadas supera
+escalar uma só.
+
+% =====================================================================
+\section{Quadro comparativo e aplicabilidade}
+% =====================================================================
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llllp{4.3cm}@{}}
+\toprule
+\textbf{Dimensão} & \textbf{Técnica} & \textbf{Família} & \textbf{Custo} & \textbf{Aplicável quando} \\
+\midrule
+Ortografia & léxico + edição      & detector  & $\sim$0\,ms   & sempre; primeira etapa obrigatória \\
+Gramática  & T1 \textit{parser}   & detector  & $\sim$4\,ms   & é preciso localizar o \textit{token} \\
+Gramática  & T2 LanguageTool      & detector  & $\sim$0,4\,s  & é preciso explicar a regra \\
+Gramática  & T3 SLOR              & pontuador & $\sim$0,5\,s  & comparar frases de conteúdos distintos \\
+Gramática  & T4 PLL               & pontuador & $\sim$0,4\,s  & comparar dentro de par mínimo \\
+Estrutura  & E1 teste da raiz     & detector  & $\sim$3,5\,ms & sempre; melhor relação custo/exatidão \\
+Estrutura  & E2/E3 complexidade   & descritivo& $\sim$4\,ms   & caracterizar registro, não detectar erro \\
+Estrutura  & E4 legibilidade      & descritivo& $\sim$0,01\,ms& textos, nunca frase isolada; jamais como veredito \\
+Semântica  & S1 surpresa          & pontuador & $\sim$0,5\,s  & localizar com modelo já carregado \\
+Semântica  & S2 verbo mascarado   & detector  & $\sim$38\,ms  & anomalia de seleção verbal \\
+Semântica  & S3 \textit{embeddings}& pontuador& $\sim$40\,ms  & similaridade temática; nunca polaridade \\
+Semântica  & S4 LLM               & pontuador & $\sim$1,6\,s  & quando se exige explicação em texto \\
+Coerência  & C1--C3               & pontuador & $\sim$0,1\,s  & \emph{nenhuma} validada neste estudo \\
+Coerência  & C4 LM condicional    & pontuador & $\sim$1\,s    & único com sinal; instável \\
+\bottomrule
+\end{tabular}}
+\caption{Quadro de aplicabilidade. A ordem de emprego natural vai do mais barato, exato e
+localizável ao mais caro, vago e global, sendo cada etapa pré-requisito da seguinte.}
+\label{tab:quadro}
+\end{table}
+
+\paragraph{Como as técnicas se compõem na prática.} Nenhuma técnica isolada avalia uma frase; o que
+funciona é o encadeamento, na ordem da Tabela~\ref{tab:quadro}. Três regras de composição decorrem
+do que foi medido. Primeiro, \textbf{a ortografia precede tudo}: palavra fora do vocabulário
+desregula qualquer medida de frequência, de modo que o cálculo do SLOR deve ser suspenso quando há
+forma desconhecida. Segundo, \textbf{técnicas complementares não se ordenam}: T1 obtém 6/6 em
+concordância e 0/6 em ortografia, e T2 exatamente o inverso --- perguntar ``qual é melhor'' é a
+pergunta errada, e a certa é ``qual cobre o quê''. Terceiro, \textbf{todo detector localizado deixa
+passar o defeito global}: frases de palavras embaralhadas e frases gramaticais sem sentido
+atravessam as quatro etapas de frase sem disparo, e apenas o SLOR --- medida global, não localizável
+--- as flagra. Ao desenhar um avaliador, convém perguntar quais defeitos do domínio não têm
+endereço.
+
+\paragraph{Duas lições transversais.} Primeiro, \textbf{custo não compra qualidade}: em três das
+quatro dimensões a técnica mais barata iguala ou supera a mais cara --- o \textit{parser}
+($\sim$4\,ms) vence a ferramenta madura em concordância verbal, o teste da raiz é o detector mais
+exato do levantamento, e o verbo mascarado ($\sim$38\,ms) supera o LLM ($\sim$1,6\,s). Segundo,
+\textbf{combinar camadas supera escalar uma só}: a melhor técnica semântica é justamente a que
+recorre ao \textit{parser} para decidir onde interrogar o modelo estatístico.
+
+% =====================================================================
+\section{Limitações}
+% =====================================================================
+
+\paragraph{Escala e natureza do corpus.} As 36 frases são sintéticas, construídas pelo próprio
+autor, e contêm apenas seis instâncias de cada tipo de defeito. Os resultados são indicativos do
+comportamento qualitativo das técnicas, não estimativas de desempenho em produção. Não houve
+validação contra anotadores humanos; consequentemente, os instrumentos de acordo (Kappa de Cohen,
+alpha de Krippendorff) e de correlação (Spearman, Kendall) foram mobilizados como referencial
+metodológico, e não aplicados.
+
+\paragraph{Parte dos resultados pertence aos recursos, não às técnicas.} O léxico empregado tem
+88,8\% de suas formas na contagem-piso, de modo que a correção de frequência do SLOR só é
+informativa para os 11,2\% restantes; e sua cobertura determina quantas formas caem no piso de
+palavra ausente. Substituir o recurso, sem alterar técnica alguma, modificaria os números.
+Analogamente, os limites observados na concordância refletem \texttt{morph\_acc} de 95,0\% e
+\texttt{dep\_las} de 84,5\% do modelo empregado, e não a inadequação do método. Ao transpor
+qualquer destas técnicas para outro contexto, convém medir primeiro as propriedades do recurso
+disponível.
+
+\paragraph{Medição de custo.} Os tempos incluem sobrecusto de integração --- notadamente o servidor
+Java do LanguageTool, acionado por HTTP a cada chamada. Apenas diferenças de ordem de grandeza são
+conclusivas.
+
+\paragraph{Alcance da comparação na etapa semântica.} A superioridade da margem está demonstrada
+\emph{em relação ao limiar absoluto de surpresa} (6/6 contra 4/6). Não está demonstrada em relação a
+um limiar absoluto aplicado ao próprio $\ln P$ do verbo mascarado: nesse critério, a pior frase
+correta obtém $-7{,}73$ e a melhor anomalia $-14{,}15$, vão de 6,42 \textit{nats} --- praticamente
+idêntico ao vão de 6,39 obtido pela margem. Neste corpus os dois critérios separam igualmente bem, e
+o argumento a favor da margem permanece \emph{de princípio}: por ser normalizada ao teto da posição,
+ajusta-se a contextos em que nem o melhor preenchimento é provável, situação que estas seis bases ---
+prosa jornalística comum --- não contemplam.
+
+\paragraph{Técnicas mapeadas e não implementadas.} Ficaram deliberadamente de fora, por exigirem
+anotação ou recursos ausentes: o classificador supervisionado de aceitabilidade (estilo CoLA,
+avaliado por MCC), que demanda dados rotulados; a inferência de linguagem natural (NLI, com recursos
+do ASSIN/ASSIN~2) e a rotulagem de papéis semânticos (SRL/WSD); os índices de Yngve e Frazier, que
+requerem árvore de constituintes indisponível no \texttt{pt\_core\_news\_sm}; e as cadeias lexicais
+sobre ontologia (WordNet). Registrá-las delimita o alcance do que foi de fato medido.
+
+% =====================================================================
+\section*{Referências}
+% =====================================================================
+\small
+\begin{itemize}\itemsep2pt
+\item Warstadt, Singh \& Bowman (2019). \textit{CoLA: The Corpus of Linguistic Acceptability}.
+\item Warstadt et al.\ (2020). \textit{BLiMP: Benchmark of Linguistic Minimal Pairs}.
+\item Lau, Clark \& Lappin (2017). \textit{Grammaticality, Acceptability, and Probability}.
+\item Pauls \& Klein (2012). \textit{Large-Scale Syntactic Language Modeling} (SLOR).
+\item Salazar et al.\ (2020). \textit{Masked Language Model Scoring} (PLL).
+\item Wang \& Cho (2019). \textit{BERT has a Mouth, and It Must Speak}.
+\item Nivre et al.\ (2020). \textit{Universal Dependencies v2}.
+\item Rademaker et al.\ (2017). \textit{Universal Dependencies for Portuguese} (Bosque).
+\item Naber (2003). \textit{A Rule-Based Style and Grammar Checker} (LanguageTool).
+\item Futrell, Mahowald \& Gibson (2015). \textit{Dependency Length Minimization}.
+\item Martins et al.\ (1996); Scarton \& Aluísio (2010). Legibilidade e \textit{Coh-Metrix-Port}.
+\item Barzilay \& Lapata (2008). \textit{Modeling Local Coherence} (\textit{entity grid}).
+\item Real et al.\ (2020). \textit{ASSIN 2}; Souza, Nogueira \& Lotufo (2020). \textit{BERTimbau}.
+\end{itemize}
+
+\end{document}
