@@ -1,0 +1,61 @@
+% =====================================================================
+%  Método 9 — Surpresa por token   (dimensão: semântica)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{Surpresa por token}
+\label{met:surpresa}
+
+\indent\indent O SLOR e o PLL devolvem um valor para a frase integral: prestam-se à ordenação, mas não
+localizam o desvio. Este método se propõe a localizá-lo, devolvendo um valor por palavra --- é
+a mesma grandeza, examinada antes da agregação.
+
+Para cada posição, a surpresa é o logaritmo negativo da probabilidade que o modelo atribui à
+palavra efetivamente ocorrente:
+%
+\begin{equation}
+\surp(w_i) = -\ln P\bigl(w_i \mid w_{i-1}\bigr)
+\label{eq:surp}
+\end{equation}
+%
+Como $P \in (0,1]$, a surpresa é sempre não negativa: assume valor nulo sob certeza do modelo e
+cresce à medida que a palavra se torna improvável. Em logaritmo natural a grandeza é expressa
+em \emph{nats} e, sob $\log_2$, em \emph{bits}, caso em que a leitura é literal --- a
+quantidade de informação que a palavra veicula. A surpresa corresponde exatamente à
+autoinformação da teoria da informação.
+
+O método não constitui técnica nova, mas a parcela que o SLOR já agregava. Retomando os dois
+estimadores da subseção~\ref{met:slor},
+%
+\begin{equation}
+\SLOR(\sent) = \frac{1}{|\sent|}\sum_{i} \Bigl[\,\surp_{\mathrm{uni}}(w_i)
+- \surp_{\mathrm{bi}}(w_i)\,\Bigr]
+\label{eq:surp-slor}
+\end{equation}
+%
+isto é, o SLOR é a média da redução de surpresa produzida pelo contexto. Nada é recomputado e
+nenhum modelo adicional se faz necessário.
+
+Sob esse estimador, contudo, a grandeza não cresce sem limite. Vale a mesma identidade da
+Equação~\ref{eq:piso-slor}: quando $c(w_{i-1},w_i) = 0$, a interpolação recua para a unigrama e
+%
+\begin{equation}
+\surp(w_i) = -\ln\bigl[(1-\lambda)P(w_i)\bigr] = \surp_{\mathrm{uni}}(w_i) + 1{,}204
+\label{eq:teto-surpresa}
+\end{equation}
+%
+Como o Laplace impõe $P(w) \geq 1/(N+V)$, segue o teto
+$\surp(w_i) \leq \ln(N+V) + 1{,}204 = 15{,}08$, alcançado por toda palavra ausente do corpus de
+contagens. Nessas posições a surpresa deixa de mensurar o contexto e passa a registrar apenas
+a raridade da forma.
+
+A leitura proposta consiste em identificar o pico,
+%
+\begin{equation}
+\hat{\imath} \;=\; \arg\max_{i} \; \surp(w_i)
+\label{eq:surp-argmax}
+\end{equation}
+%
+sob a expectativa de que a surpresa se eleve na posição defeituosa, o que permitiria localizar
+a palavra. Convém registrar a suposição embutida nessa leitura: assume-se que \emph{improvável}
+e \emph{incorreto} coincidam.

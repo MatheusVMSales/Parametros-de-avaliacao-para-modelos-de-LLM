@@ -1,0 +1,52 @@
+% =====================================================================
+%  Método 3 — Regras escritas à mão (LanguageTool)  (dimensão: gramática)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{Regras escritas à mão}
+\label{met:regras}
+
+\indent\indent O método se propõe a confrontar a frase com a norma escrita. A gramática normativa
+encontra-se codificada em compêndios e gramáticas de referência, e o método não realiza
+inferência: cada regra é transcrita manualmente como um padrão sobre a sequência anotada, e o
+verificador busca casamentos~\cite{naber2003,milkowski2010}.
+
+A frase é tokenizada e anotada, constituindo uma sequência de triplas
+%
+\begin{equation}
+\sent = \bigl\langle (w_1, \ell_1, p_1),\ (w_2, \ell_2, p_2),\ \ldots,\ (w_n, \ell_n, p_n) \bigr\rangle
+\label{eq:regras-seq}
+\end{equation}
+%
+em que $w_i$ designa a forma escrita, $\ell_i$ o lema e $p_i$ a etiqueta morfológica.
+
+Cada regra $r$ consiste em um padrão $\pi_r$: expressão sobre essas triplas, análoga a uma
+expressão regular, porém operando sobre atributos linguísticos em lugar de caracteres. A
+regra dispara nas posições em que o padrão casa,
+%
+\begin{equation}
+D_r(\sent) = \{\, i \;:\; \pi_r \text{ casa em } \sent \text{ a partir da posição } i \,\}
+\label{eq:regras-Dr}
+\end{equation}
+%
+e a saída do método é a união sobre a gramática $R$, o conjunto finito de regras elaboradas
+para o idioma:
+%
+\begin{equation}
+D(\sent) = \bigcup_{r \in R} \bigl\{ (i,\, r) \;:\; i \in D_r(\sent) \bigr\}
+\label{eq:regras-D}
+\end{equation}
+
+A propriedade determinante do método é que $R$ é finito e de elaboração manual. Daí decorre,
+sem gradação intermediária,
+%
+\begin{equation}
+\text{erro} \notin \bigcup_{r \in R} \mathcal{L}(\pi_r) \;\Longrightarrow\; \text{invisível}
+\label{eq:regras-invisivel}
+\end{equation}
+%
+em que $\mathcal{L}(\pi_r)$ designa o conjunto de construções que o padrão reconhece. Não há
+generalização nem grau de confiança: na ausência de regra correspondente, o desvio não é
+detectado.
+
+A cobertura do método equivale, portanto, ao trabalho humano investido no idioma.

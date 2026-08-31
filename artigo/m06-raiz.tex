@@ -1,0 +1,44 @@
+% =====================================================================
+%  Método 6 — Teste do núcleo predicativo   (dimensão: estrutura)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{Teste do núcleo predicativo}
+\label{met:raiz}
+
+\indent\indent O método se propõe a decidir se a sequência constitui oração ou fragmento. Toda frase requer
+um predicado --- não se trata de heurística nem de tendência estatística, mas de propriedade
+sintática ---, e em uma árvore de dependências essa propriedade é verificável em um único
+ponto: a raiz, o nó que não depende de nenhum outro~\cite{nivre2016}.
+
+Seja $\raiz(\sent)$ a raiz da árvore e $\mathrm{filhos}(\raiz)$ seus dependentes diretos. A
+frase possui predicado quando
+%
+\begin{equation}
+\mathrm{Pred}(\sent) \;=\;
+\underbrace{\bigl[\mathrm{pos}(\raiz) \in \{\texttt{VERB}, \texttt{AUX}\}\bigr]}_{\text{predicado verbal}}
+\;\lor\;
+\underbrace{\bigl[\exists\, c \in \mathrm{filhos}(\raiz) : \mathrm{dep}(c) = \texttt{cop}\bigr]}_{\text{predicado nominal}}
+\label{eq:raiz-pred}
+\end{equation}
+%
+A raiz e seus dependentes diretos bastam. Dada a árvore, é o método de menor custo entre os
+dez, e ainda assim produz veredito binário e localizado.
+
+A inspeção recai sobre a raiz, e não sobre a presença de verbo, porque o teste ingênuo ---
+verificar se existe algum verbo na frase --- aprova o fragmento. Confrontem-se \emph{O incêndio
+\textbf{atingiu} a mata nativa} e \emph{O incêndio que \textbf{atingiu} a mata nativa}: ambas
+contêm o verbo \texttt{atingiu}, mas a primeira constitui oração e a segunda não. O que difere
+não é a presença do verbo, e sim sua posição na árvore, pois o pronome \texttt{que} o rebaixa
+a oração relativa (\texttt{acl:relcl}) e a raiz passa a um substantivo.
+
+O segundo termo da disjunção é igualmente necessário. Em predicações nominais, como \emph{O
+carro é azul}, a raiz é o predicativo \texttt{azul}, etiquetado \texttt{ADJ}, e o verbo
+\texttt{é} figura como dependente com função \texttt{cop}. Na ausência dessa cláusula, toda
+construção copular seria classificada como fragmento, o que inviabilizaria o método em
+português.
+
+Convém registrar duas coisas que a Equação~\ref{eq:raiz-pred} não contém. Nenhum de seus
+termos consulta \texttt{VerbForm}, de modo que a distinção entre forma finita e infinitiva não
+participa do veredito. E a notação $\raiz(\sent)$ pressupõe unicidade, que o analisador não
+garante. A Seção~\ref{sec:resultados} mede a consequência de ambas.

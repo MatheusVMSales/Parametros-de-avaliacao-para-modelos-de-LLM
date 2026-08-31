@@ -1,0 +1,58 @@
+% =====================================================================
+%  Método 2 — Traços morfossintáticos sobre a árvore  (dimensão: gramática)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{Traços morfossintáticos sobre a árvore de dependências}
+\label{met:tracos}
+
+\indent\indent O método se propõe a verificar concordância. A concordância não constitui heurística passível
+de aproximação: define-se como igualdade de traços entre dois nós ligados na árvore sintática,
+e o método transcreve literalmente essa definição.
+
+O analisador~\cite{nivre2016} associa a cada palavra $t$ três informações: a classe gramatical,
+o núcleo $\nucleo{t}$ do qual ela depende e um mapa de traços
+%
+\begin{equation}
+\tracosp{\tau}{t} \in \{\text{valor},\ \ausente\}
+\label{eq:tracos-mapa}
+\end{equation}
+%
+em que $\tau$ designa o traço --- \texttt{Number}, \texttt{Gender} ou \texttt{Person} --- e
+$\ausente$ indica ausência, uma vez que preposições e advérbios, entre outras classes, não
+portam número nem gênero. A árvore é o conjunto de arcos $A = \{(t,\, r,\, \nucleo{t})\}$,
+sendo $r$ a função sintática. Emprega-se $\tracosp{\tau}{t}$, e não $\tracos{\tau}{t}$, porque
+o traço não é observado, mas \emph{predito} pelo anotador --- distinção notacional aqui e
+consequente na Seção~\ref{sec:discussao}, onde um traço mal predito suprime um desvio real.
+
+Nem todo arco impõe concordância, e cada tipo impõe traços distintos. Seja $T(r)$ o conjunto
+de traços cuja coincidência o arco $r$ exige:
+%
+\begin{equation}
+T(r) = \begin{cases}
+\{\texttt{Number},\ \texttt{Gender}\}, & r \in \{\texttt{det},\ \texttt{amod},\ \texttt{acl}\},\ \nucleo{t} \text{ é NOUN/PROPN} \\[3pt]
+\{\texttt{Number},\ \texttt{Person}\}, & r \in \{\texttt{nsubj},\ \texttt{nsubj:pass}\},\ \nucleo{t} \text{ é VERB/AUX} \\[3pt]
+\varnothing, & \text{caso contrário}
+\end{cases}
+\label{eq:tracos-Tr}
+\end{equation}
+%
+O conjunto de erros da frase é
+%
+\begin{equation}
+E(\sent) = \bigl\{\, (t,\,h,\,\tau) \;:\; (t,r,h) \in A,\ \ \tau \in T(r),\ \
+\tracosp{\tau}{t} \neq \ausente,\ \ \tracosp{\tau}{h} \neq \ausente,\ \
+\tracosp{\tau}{t} \neq \tracosp{\tau}{h} \,\bigr\}
+\label{eq:tracos-E}
+\end{equation}
+%
+e a frase é aceita quando $E(\sent) = \varnothing$. A saída não é um escore, mas o conjunto das
+palavras responsáveis, cada uma acompanhada do termo com que diverge e do traço violado.
+
+Três decisões estão inscritas na formulação. A guarda $\tracosp{\tau}{\cdot} \neq \ausente$ é
+obrigatória: sem ela, toda palavra desprovida de número seria computada como discordante de
+seu núcleo. O terceiro caso, $T(r) = \varnothing$, previne o falso positivo mais frequente ---
+em \emph{as flores do jardim}, \texttt{jardim} liga-se a \texttt{flores} por \texttt{nmod}, e
+substantivos assim ligados não concordam entre si. E a inclusão de \texttt{acl} não é
+acessória: em \emph{os dados coletados} o particípio recebe essa função e a classe VERB, e não
+\texttt{amod}, de modo que sua omissão suprimiria a verificação de concordância de particípio.

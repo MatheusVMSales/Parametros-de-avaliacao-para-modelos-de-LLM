@@ -1,0 +1,383 @@
+% =====================================================================
+%  8. Discussão
+%
+%  COMPILADO — pontos levantados enquanto as técnicas são percorridas.
+%  Nada escrito ainda: cada tópico reúne o achado, sua origem medida e o
+%  rótulo onde ele está reportado. A redação vem depois, quando o
+%  conjunto estiver fechado.
+%
+%  A prosa já redigida dos tópicos 1 a 3 está em
+%  scratchpad/08-discussao-prosa.tex
+% =====================================================================
+\section{Discussão}
+\label{sec:discussao}
+
+
+% =====================================================================
+%  ESCRITO: Ortografia
+% =====================================================================
+\subsection{Ortografia}
+\label{disc:ortografia}
+
+\indent\indent A dimensão dispõe de um único método, e é ele que devolve o veredito mais forte de todo o
+levantamento. A pertinência a $\lexico$ não é estimada nem aproximada: a palavra consta ou não
+consta do conjunto, sem gradação e sem margem. É também o único método que, além do
+diagnóstico, devolve a correção --- sobre \texttt{natvia}, a Equação~\ref{eq:lex-argmax}
+apontou \texttt{nativa} sem ambiguidade, e a subseção~\ref{res:lexico} não registrou falso
+positivo sobre a frase correta.
+
+Dois problemas delimitam o que a dimensão alcança, e eles são de naturezas distintas.
+
+O primeiro é de fronteira, e é intrínseco à definição. Em \emph{A três dias} o método não
+produziu achado, porque \texttt{a} é palavra do português e pertence a $\lexico$. A Equação~\ref{eq:lex-deteccao} avalia uma palavra por
+vez, isoladamente, e \texttt{a}, tomada isoladamente, não apresenta desvio algum.
+
+O segundo problema é de procedência, e afeta o que o método devolve quando acerta. O léxico é
+uma lista de frequências, e não um dicionário: o conjunto de candidatos herda o que o corpus
+de origem contém. Dos quatro candidatos a uma edição de \texttt{natvia} na
+Tabela~\ref{tab:candidatos}, apenas \texttt{nativa} é palavra corrente do português;
+\texttt{naevia} e \texttt{natia} não constam de dicionário normativo, e \texttt{latvia} é
+forma estrangeira. São candidatos por terem sido atestados no material de origem, e não por
+serem palavras do idioma. O desempate segue a mesma lógica, uma vez que a decisão recai
+integralmente sobre $f$: \texttt{nativa} vence com 912 ocorrências, então, a qualidade 
+do resultado esta diretamente ligada ao corpus utilizado.
+
+
+
+% =====================================================================
+%  ESCRITO: Gramática
+% =====================================================================
+\subsection{Gramática}
+\label{disc:gramatica}
+
+\indent\indent A dimensão reúne quatro métodos, e eles se dividem em dois grupos pelo tipo de resposta. Os
+traços morfossintáticos e as regras escritas à mão devolvem um veredito localizado; o SLOR e o
+PLL devolvem um número.
+
+Os dois primeiros acertam onde têm cobertura, sendo assim, dependem das regras bem descritas.
+ As regras detectaram a troca em \emph{A três dias} e são o único método do
+levantamento a devolver, junto com o achado, o enunciado da norma em português; mas sobre
+\emph{os incêndios atingiu} nenhuma das 2.270 regras casou, e $D(\sent) = \varnothing$ é
+indistinguível da saída de uma frase correta. É a Equação~\ref{eq:regras-invisivel} verificada
+em caso concreto: a cobertura de $R$ é finita e de elaboração manual, e o português dispõe de
+249 grupos de regras. Os traços, por sua vez, localizaram o desvio de
+\emph{uma áreas} com precisão que nenhum outro método alcança --- a palavra, o termo com que
+diverge, o traço violado e o arco que os liga ---, mas deixaram passar \emph{a área inteiro}:
+o adjetivo posposto está no masculino e ainda assim $E(\sent) = \varnothing$, porque o
+anotador atribuiu $\texttt{Gender} = \texttt{Fem}$ a \texttt{inteiro} e a comparação devolveu
+\emph{iguais}. A fórmula está correta e o insumo não está, e é por isso que a
+Equação~\ref{eq:tracos-E} compara $\tracosp{}{}$, e não $\tracos{}{}$.
+
+Os dois métodos de escore ordenam, mas não decidem. O PLL ordenou as quatro frases na direção
+certa, com degraus amplos, e ainda localizou o desvio, uma vez que $5{,}18$ dos $6{,}00$ nats
+de diferença se concentram na posição do verbo. Essa localização, porém, é atribuição do
+modelo e não fato da frase: a discordância é \emph{entre} sujeito e verbo, e mascaradas as
+formas \texttt{os} e \texttt{incêndios} tornam-se mais prováveis que suas contrapartes no
+singular. Nenhum dos dois métodos dispõe de limiar, de modo que os valores são interpretáveis
+entre si e nenhum isoladamente.
+
+No SLOR soma-se um problema do estimador. O par de ordem foi separado na direção prevista, mas
+a Tabela~\ref{tab:slor} mostra sobre o que a separação repousa: nove das onze parcelas da
+frase embaralhada estão no piso $\ln(1-\lambda) = -1{,}204$, e a única contribuição positiva
+vem de \texttt{de o}, adjacência entre preposição e artigo que sobreviveu ao embaralhamento
+por acidente; do outro lado, 43\% do numerador da frase correta provém de um único bigrama
+observado duas vezes. O escore não distingue frase mal construída de frase cujo vocabulário o
+corpus de contagens não cobre, e assim nenhum dos quatro métodos decide sozinho sobre
+concordância, dois são dependente de regras que podem falhar em casos de cenários 
+fora de sua cobertura e dois não dispõem de limiar.
+
+
+
+% =====================================================================
+%  ESCRITO: Estrutura
+% =====================================================================
+\subsection{Estrutura}
+\label{disc:estrutura}
+
+\indent\indent Os dois métodos da dimensão ocupam posições opostas quanto ao que se pode extrair deles. O
+teste da raiz devolve veredito binário e localizado ao custo de inspecionar um único nó; o
+comprimento de dependência e a não-projetividade devolvem descritores que não respondem à
+pergunta da correção.
+
+O teste da raiz registra uma distinção que nenhum outro método do levantamento alcança. Entre
+\emph{o incêndio atingiu} e \emph{o incêndio que atingiu} não há diferença de vocabulário ---
+o mesmo verbo está presente nas duas ---, e o que separa oração de fragmento é a posição que
+ele ocupa na árvore. Das quatro frases a que foi submetido, o método acertou três, aprovando a
+frase de referência pelo primeiro termo da disjunção e a predicação nominal pelo segundo, e
+reprovando o fragmento por ambos serem falsos.
+
+O erro é de espécie mais simples que os da dimensão anterior. Em \emph{Atingir uma área de
+mata nativa em três dias} a raiz é \texttt{Atingir}, também VERB, e o infinitivo isolado é
+aprovado como oração. O traço que separaria os dois casos ---
+$\texttt{VerbForm} = \texttt{Inf}$ --- está na árvore, corretamente atribuído, e a
+Equação~\ref{eq:raiz-pred} simplesmente não o consulta. Diferentemente do que ocorreu com os
+traços morfossintáticos, aqui o insumo está correto e a falha é da definição, portanto
+corrigível dentro dela.
+
+Uma ressalva recai sobre a árvore que o método lê. A notação $\raiz(\sent)$ pressupõe
+unicidade, e o analisador não a garante: sobre o fragmento devolveu uma floresta, com
+\texttt{dias} e \texttt{incêndio} ambos etiquetados \texttt{ROOT}. A implementação retém o
+primeiro, e no caso o veredito não depende da escolha, pois os dois candidatos são NOUN --- mas
+o acerto se deu sobre uma entrada que a definição não previa.
+
+O segundo método não emite veredito algum, e o corpus deixa isso explícito: as duas frases a
+que foi aplicado são corretas e diferem apenas na posição em que as relativas foram
+encaixadas. O comprimento médio as separa com margem ampla, de $1{,}42$ para $3{,}58$, com o
+maior arco passando de 2 para 9, o que mensura a carga de processamento imposta pela ordem
+escolhida. Já a não-projetividade devolveu $X = 0$ nas duas: as desigualdades da
+Equação~\ref{eq:dep-cruzam} são estritas, e o encaixe de uma relativa no interior de outra
+produz arcos aninhados, não sobrepostos. A medida está correta e sobre este corpus não informa
+nada, de modo que da dimensão inteira apenas o teste da raiz é aproveitável para decidir sobre
+uma frase.
+
+
+
+% =====================================================================
+%  ESCRITO: Semântica
+% =====================================================================
+\subsection{Semântica}
+\label{disc:semantica}
+
+\indent\indent A dimensão reúne três métodos, e apenas um deles produziu decisão utilizável.
+
+O verbo mascarado separou o verbo anômalo dos adequados por quase 14 nats, e o zero de sua
+escala tem significado, uma vez que \texttt{destruiu} é a primeira escolha do modelo e recebe
+margem exatamente nula. Mais relevante que a separação, porém, é a condição que a torna
+legítima: a lista de formas esperadas é idêntica nas três frases, porque mascarar a raiz
+suprime justamente a única palavra em que elas diferem. O instrumento de medida permanece fixo
+enquanto o objeto varia --- propriedade que nenhum outro método do levantamento possui, dado
+que no SLOR e na surpresa trocar a palavra altera também as contagens que servem de referência.
+
+Duas ressalvas acompanham o método. A resposta \texttt{n/a} sobre o fragmento e a predicação
+nominal é comportamento previsto, e não falha, mas transfere a decisão ao analisador
+sintático: as duas frases foram recusadas porque a árvore predita as classificou assim. E
+$\mathcal{V}$ não está restrito a formas verbais, como mostra a preposição \texttt{em} entre
+as cinco esperadas; neste corpus a folga é inconsequente, pois $\hat{v}$ foi \texttt{destruiu}
+nas três frases, mas nada na Equação~\ref{eq:verbo-margem} impede que o melhor preenchimento
+seja palavra de outra classe.
+
+A surpresa por token acertou uma das três frases e errou duas, e os três picos têm a mesma
+origem. Todos recaem sobre posições de bigrama não observado, onde vale
+$\surp_{\mathrm{uni}} + 1{,}204$: na frase de referência, que não contém desvio, o pico caiu
+sobre \texttt{atingiu} apenas porque \texttt{incêndio atingiu} não consta do corpus de
+contagens. Em \emph{Focos recorrentes apresentaram persistência anômala} o caso é extremo,
+pois os cinco bigramas são não observados, todo o perfil é unigrama deslocado de uma constante,
+e o pico é a palavra mais rara no valor de teto do estimador. O $\arg\max$ seleciona
+raridade, e o acerto sobre \texttt{cantou} é contingência de o desvio ser também uma palavra
+rara.
+
+Os embeddings falham por motivo distinto. O bloco de pares sem relação comporta-se como
+esperado, situando-se junto a zero, mas o bloco superior não separa o que deveria: o par de
+maior proximidade de toda a Tabela~\ref{tab:embeddings} é um par de opostos,
+\texttt{seco}~×~\texttt{úmido} com $+0{,}838$, acima de todos os sinônimos e do próprio
+\texttt{incêndio}~×~\texttt{fogo}. Não é defeito do modelo, e sim a hipótese distribucional
+operando como definida, pois os dois termos ocorrem nos mesmos contextos. Some-se que a
+Equação~\ref{eq:vetor-frase} é invariante à ordem --- verificada em $1{,}000000$ sobre o par
+de permutação --- e que \texttt{natvia}, fora da tabela de vetores, não recebe medida alguma.
+
+Das três, portanto, apenas o verbo mascarado sobrevive à caracterização, e as duas exclusões se
+dão por razões opostas: a surpresa mede raridade em lugar de desvio, e o cosseno mede campo
+temático em lugar de sentido.
+
+
+
+% =====================================================================
+%  ESCRITO: A pipeline (introdução e seleção)
+% =====================================================================
+\subsection{A pipeline}
+\label{disc:pipeline}
+
+\indent\indent Tendo em vista os resultados obtidos, 
+observa-se uma abordagem por partição: cada um alcança um tipo 
+de desvio e falha em outros. Realizando uma análise segmentada, 
+podemos priorizar técnicas em que as falhas não coincidem. 
+--- \emph{A três dias} escapa ao léxico e é detectada pelas regras; \emph{os
+incêndios atingiu} escapa às regras e é detectada pelo PLL. Encadear os métodos é a resposta
+que decorre dessa observação, e o que se apresenta a seguir é uma sugestão de cadeia, não um
+resultado do levantamento.
+
+Propõem-se então quatro etapas, uma por dimensão, cada qual ocupada pelo método que a discussão
+anterior identificou como o único da sua dimensão a produzir veredito localizado sem parâmetro
+a calibrar:
+
+\begin{center}
+\small
+ortografia $\;\rightarrow\;$ estrutura $\;\rightarrow\;$ gramática $\;\rightarrow\;$ semântica \\[2pt]
+\emph{léxico} \qquad \emph{teste da raiz} \qquad \emph{traços} \qquad \emph{verbo mascarado}
+\end{center}
+
+A primeira etapa é o léxico porque é o único veredito do levantamento que não depende de
+estimativa: a palavra consta ou não consta de $\lexico$. É também o único método que devolve a
+correção junto com o diagnóstico. A ressalva da subseção~\ref{disc:ortografia} permanece --- a
+qualidade do que ele devolve está ligada ao corpus que originou a lista ---, mas ela afeta a
+correção sugerida, não a detecção.
+
+A segunda é o teste da raiz porque, das duas técnicas estruturais, é a única que emite
+veredito: o comprimento de dependência mede carga de processamento sobre frases corretas, e a
+não-projetividade não separou nada. Pesa a favor dele que sua única falha, a aprovação do
+infinitivo isolado, seja corrigível dentro da própria definição, bastando que a
+Equação~\ref{eq:raiz-pred} passe a exigir $\texttt{VerbForm} = \texttt{Fin}$ na raiz. É a
+correção que a cadeia pressupõe.
+
+A terceira são os traços morfossintáticos, e não as regras escritas à mão, embora as duas
+detectem desvios reais. A razão é a forma da cobertura: $T(r)$ é uma condição sobre classes de
+arcos e vale para toda ocorrência da classe, ao passo que $R$ é um conjunto finito de padrões
+individuais, cuja ausência de item torna o desvio invisível. Os traços também localizam com a
+precisão mais fina do levantamento. As regras permanecem, contudo, a extensão mais imediata da
+cadeia, uma vez que detectam a escolha lexical, que é o desvio que nenhuma das quatro etapas
+alcança.
+
+A quarta é o verbo mascarado por ser o único método semântico que sobreviveu à caracterização,
+e porque é o único de todo o levantamento cujo instrumento de medida permanece fixo enquanto o
+objeto varia.
+
+A ordem das quatro não é escolha de projeto. A ortografia vem primeiro porque uma palavra fora
+do léxico não permanece contida nessa etapa: ela deforma a árvore de dependências que as três
+etapas seguintes leem. A estrutura precede a gramática porque a existência de predicado é
+condição para que os arcos de concordância estejam corretamente atribuídos, e o teste da raiz a
+verifica a custo desprezível. E a semântica encerra a cadeia porque o verbo mascarado devolve
+\texttt{n/a} quando a raiz não é verbo, de modo que depende da verificação estrutural. Cabe
+registrar que essa dependência não é estrita: uma predicação nominal passa pela segunda etapa e
+ainda assim recebe \texttt{n/a} na quarta, pois ter predicado e ter verbo na raiz não são a
+mesma condição.
+
+
+Aplicada a cadeia, cada etapa devolve um achado ou nada, e a frase é reprovada quando alguma
+delas produz achado. As quatro são executadas sempre, ainda que a primeira já reprove: a
+decisão de não bloquear é o que torna o laudo legível, pois expõe todos os desvios de uma vez
+em lugar de um por passagem. A Tabela~\ref{tab:laudo} apresenta o laudo de duas frases do
+corpus.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llll@{}}
+\toprule
+& \textbf{Etapa} & & \textbf{Achado} \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Há três dias o incêndio atingiu uma áreas de mata nativa.}} \\
+\midrule
+& ortografia & ok & --- \\
+& estrutura  & ok & predicado presente \\
+& gramática  & \textbf{!!} & Number: \texttt{uma}(Sing) × \texttt{áreas}(Plur) [det] \\
+& semântica  & ok & \texttt{atingiu}, margem 0,65 \\
+\midrule
+\midrule
+\multicolumn{4}{@{}l}{\emph{Há tres dias o incêndio atingiu uma áreas de mata natvia.}} \\
+\midrule
+& ortografia & \textbf{!!} & \texttt{natvia} $\to$ \texttt{nativa} \\
+& estrutura  & ok & predicado presente \quad$^\dagger$ \\
+& gramática  & \textbf{!!} & Number: \texttt{uma}(Sing) × \texttt{áreas}(Plur) [det] \quad$^\dagger$ \\
+& semântica  & ok & \texttt{atingiu}, margem 0,95 \quad$^\dagger$ \\
+\bottomrule
+\end{tabular}}
+\caption{Laudo da cadeia sobre duas frases. $^\dagger$ etapa marcada como \emph{árvore sob
+suspeita}, por ler uma árvore construída sobre palavra fora do léxico.}
+\label{tab:laudo}
+\end{table}
+
+A primeira frase contém um único desvio, e a cadeia o localiza na etapa que lhe corresponde. A
+segunda acrescenta uma palavra fora do léxico, e é ela que expõe o custo do encadeamento: a
+forma \texttt{natvia} não permanece contida na primeira etapa, pois deforma a árvore de
+dependências que as três seguintes leem. Daí a marcação \emph{árvore sob suspeita}, que não
+indica incorreção, mas confiabilidade menor --- e que é a resposta prática ao limite enunciado
+na subseção~\ref{disc:gramatica}, o de que uma cadeia de etapas que leiam a mesma árvore
+predita herda os erros dessa predição.
+
+No caso examinado a deformação não atingiu o arco relevante, e o achado de concordância
+permanece legítimo nas duas frases. Trata-se, contudo, de contingência posicional, e não de
+garantia: a marcação existe justamente porque a cadeia não tem como distinguir os dois casos.
+
+Cabe observar, por fim, que a quarta etapa não produz achado em nenhuma das duas frases, com
+margens de $0{,}65$ e $0{,}95$. O ganho dela não se manifesta neste par, cujos desvios são de
+ortografia e de concordância; ela se destina à anomalia de seleção verbal, para a qual a margem
+medida na subseção~\ref{res:verbo} alcança $13{,}73$.
+
+
+
+% =====================================================================
+%  TÓPICO 1 — [ESCRITO em \subsection{Ortografia}]
+%  origem: res:lexico, tab:candidatos
+% ---------------------------------------------------------------------
+%  - O léxico é lista de frequências, não dicionário. O conjunto de
+%    candidatos herda o que o corpus contém: dos quatro candidatos de
+%    'natvia', só 'nativa' é palavra corrente do português — 'naevia' e
+%    'natia' não constam de dicionário normativo, 'latvia' é estrangeira.
+%  - O desempate reproduz a distribuição do corpus: 'nativa' vence com
+%    f = 912, margem do material de origem e não propriedade linguística.
+%  - Trocar a lista altera quem entra em C(w) E quem vence o argmax, sem
+%    que uma linha da definição mude.
+%  - Consequência: a qualidade da correção é herdada, não construída. O
+%    veredito de pertinência a D — o único exato entre os métodos — é
+%    exato apenas relativamente ao conjunto que se adotou.
+
+
+% =====================================================================
+%  TÓPICO 2 — Três falhas, três causas
+%  origem: res:lexico, res:regras, e o caso 'a área inteiro' (célula 9)
+% ---------------------------------------------------------------------
+%  Cada método deixou passar um desvio, e as causas estão em níveis
+%  diferentes. É isso que justifica encadear em vez de aperfeiçoar um.
+%
+%  (a) DEFINIÇÃO — 'A três dias', no léxico.
+%      'a' pertence a D; eq:lex-deteccao se esgota nesse fato. Não há
+%      defeito a corrigir: predicado que avalia uma palavra isolada não
+%      distingue forma existente de forma adequada.
+%
+%  (b) COBERTURA DO RECURSO — 'os incêndios atingiu', nas regras.
+%      Nenhuma das 2.270 regras casou; D(s) = vazio. eq:regras-invisivel
+%      previa exatamente isso. Correção disponível: escrever mais uma
+%      regra — trabalho manual que não generaliza.
+%
+%  (c) INSUMO — 'a área inteiro', nos traços.  <-- a mais difícil
+%      Adjetivo posposto no masculino, núcleo no feminino, e ainda assim
+%      E(s) = vazio. O arco amod foi admitido por T(r), a comparação de
+%      Gender foi efetuada e devolveu 'iguais': o anotador atribuíra
+%      Gender=Fem a 'inteiro'. eq:tracos-E compara mu-chapéu, não mu.
+%      A formulação está correta; nenhum ajuste dela recupera o caso.
+%      É a promessa que met:tracos deixa em aberto e que aponta para cá.
+
+
+% =====================================================================
+%  TÓPICO 3 — O que as falhas justificam, e o que elas não justificam
+%  origem: res:lexico + res:regras (par medido de complementaridade)
+% ---------------------------------------------------------------------
+%  - Nenhuma das três falhas se corrige por dentro do método que a
+%    produziu, e elas não coincidem: 'A três dias' escapa ao léxico e é
+%    detectada pelas regras. É o argumento direto para o encadeamento —
+%    não porque um método seja melhor, mas porque operam sobre objetos
+%    distintos e erram em lugares distintos.
+%  - LIMITE, a enunciar junto: a falha (c) é a que o encadeamento NÃO
+%    resolve. Etapas que leiam a mesma árvore predita herdam o erro dessa
+%    predição. O encadeamento resolve complementaridade de cobertura, não
+%    qualidade do insumo.
+%  - Daí a necessidade de uma etapa registrar quando há motivo para
+%    suspeitar da árvore, em vez de tratar todo veredito como igualmente
+%    confiável. (Prepara a marcação 'árvore sob suspeita' da pipeline.)
+
+
+% =====================================================================
+%  TÓPICO 4 — O SLOR não ordena boa formação
+%  origem: res:slor, tab:slor
+% ---------------------------------------------------------------------
+%  - PAR MÍNIMO SEM SEPARAÇÃO: 'Os satélites registraram/registrou 47
+%    focos' recebem o MESMO escore, -0,072, até a 3a casa. Nenhum dos dois
+%    bigramas foi observado; ambas as posições recuam para a unigrama.
+%  - FRASE CORRETA NO PISO: 'Focos recorrentes apresentaram persistência
+%    anômala' = -1,204 = ln(1-lambda), exatamente eq:piso-slor. Nenhum de
+%    seus 5 bigramas observado. Mede ausência de vocabulário no corpus de
+%    contagens, não construção.
+%  - ORDENAÇÃO INVERTIDA: a frase correta pontua ABAIXO da embaralhada
+%    (-1,000) e ABAIXO da frase sem sentido de Chomsky (-0,939).
+%  - TESE: a raridade que o método foi construído para descontar reaparece
+%    pelo piso do estimador. Liga ao TÓPICO 1 — de novo o corpus de
+%    contagens determinando o veredito, agora num método de escore.
+%  - Consequência para a cadeia: escore global sem termo de comparação não
+%    decide sobre frase isolada. Reforça o veredito por vacuidade de
+%    conjunto em vez de escore agregado.
+
+
+% =====================================================================
+%  A ACRESCENTAR conforme as técnicas forem percorridas:
+%  PLL, raiz, dependência, surpresa, verbo, embeddings
+% =====================================================================

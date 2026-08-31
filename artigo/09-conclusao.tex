@@ -1,0 +1,40 @@
+% =====================================================================
+%  9. Conclusão
+% =====================================================================
+\section{Conclusão}
+\label{sec:conclusao}
+
+\indent\indent Este trabalho descreveu dez métodos de avaliação de frases isoladas em português sob um
+formalismo único e os submeteu ao mesmo conjunto controlado de variantes, distribuídos por
+quatro dimensões: ortografia, gramática, estrutura e semântica.
+
+A caracterização não produziu uma ordenação. Nenhum dos dez domina os demais, e as falhas
+observadas não se corrigem umas às outras porque nascem em níveis distintos: umas na definição
+do próprio método, outras na cobertura finita do recurso que ele consulta, outras ainda no
+insumo que um modelo anterior lhe entrega.
+
+Sendo assim decorre que combinar os métodos não é conveniência de implementação, mas a resposta que o
+levantamento indica. Como as coberturas são complementares e as falhas não coincidem, o que
+um método deixa passar é frequentemente o que outro alcança --- e a cadeia proposta reúne
+quatro etapas, uma por dimensão, decidindo pela existência de achados localizados em lugar de
+escore agregado. Cada item do laudo conserva a etapa que o produziu e as palavras envolvidas, e
+um único limiar figura em toda a cadeia.
+
+Os limites são de duas ordens, e ambas recomendam cautela na leitura. O corpus é controlado e
+pequeno, derivado de uma única frase de referência, e cada método foi aplicado às variantes que
+exercitam a propriedade que ele mede, de modo que a complementaridade permanece argumento de
+construção mais do que medida. E os instrumentos são únicos --- um analisador sintático, um
+corpus de contagens, um modelo mascarado ---, nenhum treinado ou ajustado aqui, o que significa
+que parte do que se observou pertence a eles, e não às definições.
+
+Desses limites decorrem os trabalhos futuros. O primeiro é completar a aplicação cruzada,
+submetendo cada método a todas as variantes, para que a complementaridade deixe de ser
+argumento e passe a ser medida. O segundo é ampliar o corpus, tanto em número de frases de
+referência quanto em tipos de desvio, e submetê-lo a julgamentos humanos de aceitabilidade,
+de que este trabalho não dispôs. O terceiro é variar os instrumentos, repetindo as medições sob
+outro analisador, outro corpus de contagens e outro modelo mascarado, o que permitiria separar
+o que pertence às definições do que pertence às ferramentas. O quarto é incorporar as regras
+escritas à mão à cadeia, uma vez que alcançam a escolha lexical, desvio que as quatro etapas
+atuais atravessam sem detectar. Resta, por fim, o erro factual, que é português correto e falso
+apenas em relação à base que originou o texto: sua verificação exige confrontar o enunciado com
+os campos que o geraram, e devolve o problema ao sistema gerador.

@@ -1,0 +1,61 @@
+% =====================================================================
+%  Método 4 — SLOR   (dimensão: gramática)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{SLOR — Syntactic Log-Odds Ratio (razão sintática de log-chances)}
+\label{met:slor}
+
+\indent\indent O método se propõe a separar \emph{raro} de \emph{incorreto}. Uma frase malformada é
+improvável sob um modelo de linguagem~\cite{pauls2012,lau2017}, o que sugeriria a leitura
+direta de $\ln P(\sent)$; a probabilidade bruta, porém, não faz essa distinção, uma vez que
+uma frase correta de vocabulário técnico é improvável por conter palavras improváveis, e não
+por má construção. O SLOR desconta a contribuição atribuível à frequência isolada das palavras
+e normaliza pelo comprimento:
+%
+\begin{equation}
+\SLOR(\sent) = \frac{\ln P_{\mathrm{LM}}(\sent) \;-\; \ln P_{\mathrm{uni}}(\sent)}{|\sent|}
+\label{eq:slor}
+\end{equation}
+
+O numerador confronta dois termos. O primeiro corresponde ao modelo sensível ao contexto, aqui
+um bigrama; o segundo, ao mesmo texto sob modelo que ignora a ordem:
+%
+\begin{equation}
+\ln P_{\mathrm{LM}}(\sent) = \sum_{i=1}^{|\sent|} \ln P(w_i \mid w_{i-1})
+\qquad\qquad
+\ln P_{\mathrm{uni}}(\sent) = \sum_{i=1}^{|\sent|} \ln P(w_i)
+\label{eq:slor-termos}
+\end{equation}
+%
+A subtração isola a contribuição da estrutura. Sob um bigrama exato, a coincidência dos dois
+termos anularia o SLOR, e o sinal seria interpretável: positivo indicaria que a ordem
+acrescenta probabilidade, negativo indicaria sequência anti-estrutural.
+
+As estimativas derivam de contagens em corpus, sem recurso a modelo treinado:
+%
+\begin{equation}
+P(w) = \frac{c(w) + 1}{N + V}
+\qquad\qquad
+P(w_i \mid w_{i-1}) = \lambda\,\frac{c(w_{i-1}, w_i)}{c(w_{i-1})} \;+\; (1-\lambda)\,P(w_i)
+\label{eq:slor-estimadores}
+\end{equation}
+%
+Os termos $+1$ e $+V$ constituem a suavização de Laplace, que impede que uma palavra nunca
+observada anule a estimativa. A interpolação por $\lambda$ resolve o problema análogo no
+bigrama: quando o par $(w_{i-1}, w_i)$ não foi observado, a estimativa recua para a
+distribuição unigrama. Adotou-se $\lambda = 0{,}7$ sobre o mac\_morpho, com $N = 1.012.661$
+palavras, $V = 53.115$ formas distintas e 51.115 frases.
+
+Desse recuo decorre uma propriedade do estimador que a definição original não possui. Quando
+$c(w_{i-1}, w_i) = 0$, resta $P(w_i \mid w_{i-1}) = (1-\lambda)P(w_i)$, e a contribuição da
+posição ao numerador vale
+%
+\begin{equation}
+\ln P(w_i \mid w_{i-1}) - \ln P(w_i) = \ln(1-\lambda) = -1{,}204
+\label{eq:piso-slor}
+\end{equation}
+%
+O piso do SLOR não é, portanto, zero, mas $\ln(1-\lambda)$: uma frase cujos bigramas jamais
+foram observados recebe $-1{,}204$ independentemente de estar bem construída. O método devolve
+um número por frase, sem indicação de posição.

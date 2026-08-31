@@ -1,0 +1,48 @@
+% =====================================================================
+%  Método 11 — Embeddings   (dimensão: semântica)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{Embeddings}
+\label{met:embeddings}
+
+\indent\indent Todos os métodos anteriores tratam a palavra como símbolo: ela pertence ou não ao léxico, casa
+ou não com a regra, possui ou não contagem no corpus, e duas palavras distintas são
+simplesmente distintas, sem gradação. Este método se propõe a substituir o símbolo por um
+ponto no espaço, obtendo com isso uma noção de proximidade ausente nos demais.
+
+O fundamento é a hipótese distribucional, segundo a qual palavras que ocorrem nos mesmos
+contextos possuem significados relacionados, e cuja realização em vetores densos treinados por
+predição de contexto é a de~\textcite{mikolov2013}. O vetor sumariza os contextos de ocorrência
+da palavra no corpus de treino, e o resultado é uma tabela
+$\mathbf{v} : \mathcal{V} \to \mathbb{R}^{d}$ com uma linha por palavra --- aqui a do modelo
+\texttt{pt\_core\_news\_md}, com $d = 300$ e 20.000 linhas. Trata-se de consulta, e não de
+cálculo, uma vez que o vetor de cada palavra é invariante e está armazenado no modelo. Desta
+propriedade decorrem tanto os acertos quanto os limites do método: o vetor não codifica o
+significado da palavra, mas os contextos em que ela habitualmente ocorre.
+
+A comparação é feita pelo cosseno, isto é, pelo ângulo entre os dois vetores:
+%
+\begin{equation}
+\cos(\mathbf{a}, \mathbf{b})
+= \frac{\mathbf{a} \cdot \mathbf{b}}{\lVert \mathbf{a}\rVert \, \lVert \mathbf{b}\rVert}
+\label{eq:cosseno}
+\end{equation}
+%
+O valor situa-se entre $-1$ e $+1$, assumindo $1$ quando os vetores apontam na mesma direção e
+$0$ quando são ortogonais. Emprega-se o cosseno, e não a distância euclidiana, porque a norma
+$\lVert \mathbf{v} \rVert$ veicula sobretudo frequência, dado que palavras comuns tendem a
+vetores de maior comprimento; a divisão pelas duas normas descarta essa magnitude e retém
+apenas a direção, onde reside a informação contextual.
+
+A extensão mais simples da medida para a frase é a média dos vetores de suas palavras:
+%
+\begin{equation}
+\vetor{\sent} = \frac{1}{|\sent|} \sum_{t \in \sent} \vetor{t}
+\label{eq:vetor-frase}
+\end{equation}
+%
+O somatório percorre um multiconjunto, de modo que qualquer reordenação da frase apresenta
+exatamente os mesmos termos e, por consequência, o mesmo vetor. A invariância à ordem é
+propriedade da Equação~\ref{eq:vetor-frase}, e não contingência de um exemplo. O método
+devolve um número entre $-1$ e $+1$ por par comparado.

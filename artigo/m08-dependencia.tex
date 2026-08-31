@@ -1,0 +1,47 @@
+% =====================================================================
+%  Método 8 — Comprimento de dependência e não-projetividade  (estrutura)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{Comprimento de dependência e não-projetividade}
+\label{met:dependencia}
+
+\indent\indent Os métodos anteriores examinavam quais palavras se vinculam a quais. Este se propõe a medir
+outra coisa: a distância que as separa na ordem linear e a eventual sobreposição entre os
+vínculos. São duas medidas extraídas da mesma árvore, ambas operando sobre apenas duas
+informações --- o conjunto de arcos e a posição de cada palavra ---, sem que intervenham
+etiquetas, morfologia ou léxico.
+
+A primeira é o comprimento de dependência. Cada palavra $t$, exceto a raiz, vincula-se ao seu
+núcleo $\nucleo{t}$; sendo $i(\cdot)$ a posição na frase, o arco apresenta comprimento
+$d(t) = \lvert\, i(t) - i(\nucleo{t}) \,\rvert$, e a soma sobre a frase integral fornece
+%
+\begin{equation}
+D(\sent) = \sum_{t \,\neq\, \raiz} d(t)
+\qquad\qquad
+\bar{D}(\sent) = \frac{D(\sent)}{|A|}
+\label{eq:dep-D}
+\end{equation}
+%
+em que $|A|$ designa o número de arcos, excluída a pontuação. Uma vez que $D$ cresce com a
+extensão da frase, apenas $\bar{D}$ é comparável entre frases de comprimentos diferentes.
+
+A justificativa da medida é de ordem cognitiva. Um arco vincula duas palavras cuja relação é
+necessária à interpretação; ao processar a primeira, o leitor mantém o vínculo em aberto até
+encontrar a segunda, e quanto maior o arco, maior o intervalo de retenção. É a hipótese da
+minimização do comprimento de dependência~\cite{gibson1998,liu2008}, para a qual há evidência
+em larga escala em dezenas de línguas~\cite{futrell2015}.
+
+A segunda medida é a não-projetividade. Tomem-se dois arcos, cada um representado com a
+extremidade de menor índice em primeiro lugar, $(i,j)$ e $(k,l)$, com $i<j$ e $k<l$. Os arcos
+se cruzam quando exatamente uma extremidade de cada um recai no interior do outro:
+%
+\begin{equation}
+i < k < j < l \qquad\text{ou}\qquad k < i < l < j
+\label{eq:dep-cruzam}
+\end{equation}
+%
+Sendo $X(\sent)$ o total de pares que se cruzam, a árvore é projetiva quando $X(\sent) = 0$,
+isto é, quando é possível traçar todos os arcos acima da linha sem sobreposição entre eles. As
+desigualdades são estritas, de modo que arcos com extremidade comum não configuram cruzamento.
+A condição é puramente aritmética sobre índices, não comportando elemento linguístico algum.

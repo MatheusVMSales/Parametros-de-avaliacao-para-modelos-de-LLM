@@ -1,0 +1,45 @@
+% =====================================================================
+%  Método 10 — Plausibilidade do verbo mascarado   (dimensão: semântica)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{Plausibilidade do verbo mascarado}
+\label{met:verbo}
+
+\indent\indent Os métodos anteriores atribuem escore ao que está escrito. Este se propõe a inverter o
+procedimento: suprimir a palavra, determinar qual seria esperada naquela posição e só então
+confrontar o texto com a expectativa.
+
+A supressão de posição arbitrária não seria adequada, e a escolha é sintática: suprime-se a
+raiz da árvore de dependências, isto é, o verbo que sustenta a predicação e seleciona os
+demais argumentos. O método só se aplica quando $\mathrm{pos}(\raiz(\sent)) = \texttt{VERB}$
+e, quando essa condição é falsa --- fragmento ou predicação nominal ---, a resposta adequada é
+\texttt{n/a}, e não um escore. Não se trata de limitação implícita, mas de elemento
+constitutivo da definição. Cabe observar o arranjo: o analisador sintático determina a posição
+a ser consultada, e o modelo estatístico determina o que é plausível naquela posição, sendo
+que nenhum dos dois executaria a tarefa isoladamente.
+
+Substituída a raiz pela marca, obtém-se $\sent_{\setminus\raiz}$, e o modelo mascarado da
+subseção~\ref{met:pll} devolve uma distribuição sobre todo o vocabulário $\mathcal{V}$, que
+soma 1. Diferentemente do PLL, trata-se de probabilidade em sentido estrito, uma vez que a
+soma percorre as alternativas de uma única posição, que é exatamente o que o modelo mascarado
+foi treinado para prever. Dela se extraem duas leituras, o melhor preenchimento possível e a
+margem até ele:
+%
+\begin{equation}
+\hat{v} = \arg\max_{v \in \mathcal{V}} P\bigl(v \mid \sent_{\setminus\raiz}\bigr)
+\qquad\qquad
+m(\sent) = \ln P\bigl(\hat{v} \mid \sent_{\setminus\raiz}\bigr) - \ln P\bigl(v_\raiz \mid \sent_{\setminus\raiz}\bigr)
+\label{eq:verbo-margem}
+\end{equation}
+%
+Por construção $m(\sent) \geq 0$, e $m(\sent) = 0$ exatamente quando o verbo escrito é a
+primeira escolha do modelo. Cabe registrar que $\mathcal{V}$ não é restrito a formas verbais:
+$\hat{v}$ pode ser palavra de outra classe, e a margem passaria a ser medida contra ela.
+
+Adota-se a margem, e não o valor absoluto, porque este depende do grau geral de
+previsibilidade da posição: em contexto muito restrito toda alternativa recebe probabilidade
+elevada e, em contexto vago, toda alternativa recebe probabilidade baixa, inclusive o verbo
+adequado. A margem normaliza pelo máximo daquela posição, quantificando a distância ao melhor
+preenchimento em lugar da probabilidade absoluta. O método devolve esse número, acompanhado da
+lista das formas esperadas.

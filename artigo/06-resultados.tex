@@ -1,0 +1,725 @@
+% =====================================================================
+%  6. Resultados  (§4 no PDF)
+%
+%  Organização: uma subseção por dimensão, e dentro dela uma subsubseção
+%  por técnica daquela dimensão — na mesma ordem da Seção 5.
+% 
+%  Só entra aqui célula efetivamente executada no caderno. O caderno não
+%  tem execução cruzada: cada técnica rodou sobre 2 a 6 frases.
+% =====================================================================
+\section{Resultados}
+\label{sec:resultados}
+
+\indent\indent Os resultados foram agrupados por técnicas de mesma dimensão, 
+o que permite observar de forma mais clara e focada o que cada uma devolve 
+sob o objetivo comum à dimensão.
+
+
+% =====================================================================
+\subsection{Ortografia}
+\label{res:ortografia}
+
+\subsubsection{Léxico com distância de edição}
+\label{res:lexico}
+
+O método foi aplicado a três frases do corpus, e a Tabela~\ref{tab:lexico-resultado} reúne o
+que devolveu sobre cada uma.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Frase} & \textbf{Estado} & \textbf{Achado} & \textbf{Correção} \\
+\midrule
+Há três dias \ldots\ mata \texttt{natvia}    & desvio de grafia  & \texttt{natvia} & \texttt{nativa} \\
+Há três dias \ldots\ mata nativa             & correta           & ---              & --- \\
+\texttt{A} três dias \ldots\ mata nativa     & escolha lexical   & \textbf{nenhum} & --- \\
+\bottomrule
+\end{tabular}}
+\caption{Achados do léxico sobre três frases.}
+\label{tab:lexico-resultado}
+\end{table}
+
+A Equação~\ref{eq:lex-deteccao} foi avaliada uma vez por palavra. Sobre a primeira frase, onze
+avaliações e um único resultado positivo, em \texttt{natvia}; sobre a segunda, nenhuma das
+onze palavras ficou fora de $\lexico$, e o método não produziu falso positivo.
+
+A correção foi executada apenas para a forma detectada. O algoritmo não busca formas
+semelhantes: enumera as 949 sequências situadas a uma edição de \texttt{natvia} ---
+\texttt{aatvia}, \texttt{batvia}, \texttt{natvi}, \texttt{natviaa} e assim por diante --- e
+submete cada uma ao teste de pertinência a $\lexico$, que elimina 945 delas. Restam as quatro
+da Tabela~\ref{tab:candidatos}. Como $C_1(\texttt{natvia}) \neq \varnothing$, a
+Equação~\ref{eq:lex-escalonamento} não escalonou, e as 417.548 sequências situadas a duas
+edições jamais foram consultadas.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lll r@{}}
+\toprule
+$c$ & Operação sobre \texttt{natvia} & & $f(c)$ \\
+\midrule
+\texttt{nativa} & transposição de \texttt{v} e \texttt{i} & & 912 \\
+\texttt{naevia} & substituição de \texttt{t} por \texttt{e}  & & 103 \\
+\texttt{natia}  & remoção do \texttt{v}              & &  77 \\
+\texttt{latvia} & substituição de \texttt{n} por \texttt{l}  & &  23 \\
+\bottomrule
+\end{tabular}}
+\caption{O conjunto $C(\texttt{natvia})$, com a frequência de cada candidato no léxico.}
+\label{tab:candidatos}
+\end{table}
+
+Os quatro candidatos equidistam da forma detectada, de modo que a decisão recai integralmente
+sobre $f$: a frequência não opera como critério auxiliar de desempate, mas como único
+critério. A Equação~\ref{eq:lex-argmax} devolveu \texttt{nativa}, com 912 ocorrências.
+
+O efeito da métrica adotada se lê na primeira linha da tabela. É a transposição que situa
+\texttt{nativa} a uma edição de \texttt{natvia}; sob distância que não a contemple, a permuta
+custaria 2, a forma correta ficaria fora de $C_1$ e o $\arg\max$ devolveria \texttt{naevia},
+o segundo colocado.
+
+A terceira frase contém desvio que o método não alcançou. Em \emph{A três dias} a forma devida
+é \texttt{há}, mas \texttt{a} é palavra do português, pertence a $\lexico$, e a
+Equação~\ref{eq:lex-deteccao} se esgota nesse fato.
+
+O caso delimita o alcance do método e remete a uma distinção que ele não pode fazer: a do erro
+de grafia, em que a forma não existe, e a do erro de escolha, em que a forma existe mas não é
+a adequada ao contexto. A detecção avalia uma palavra por vez, isoladamente, e \texttt{a},
+tomada isoladamente, não apresenta desvio algum. Não se trata de defeito de implementação, mas
+do comportamento previsto pela fórmula, em que $\lexico$ constitui a definição operacional de
+erro --- e nenhum critério que examine a palavra fora de contexto alcançaria esse caso.
+
+
+% =====================================================================
+\subsection{Gramática}
+\label{res:gramatica}
+
+\subsubsection{Traços morfossintáticos}
+\label{res:tracos}
+
+O método foi aplicado à variante com desvio de concordância nominal:
+%
+\begin{center}
+\emph{Há três dias o incêndio atingiu uma áreas de mata nativa.}
+\end{center}
+
+A primeira etapa consiste em a Equação~\ref{eq:tracos-Tr} determinar quais arcos são
+admitidos. Dos dez arcos da frase, apenas quatro são examinados, conforme a
+Tabela~\ref{tab:tracos-admissao}.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lllc@{}}
+\toprule
+\textbf{Arco} $(t, r, h)$ & $r$ & $\nucleo{t}$ é & $T(r)$ \\
+\midrule
+(\texttt{Há}, case, \texttt{dias})            & case   & ---  & $\varnothing$ \\
+(\texttt{três}, nummod, \texttt{dias})        & nummod & ---  & $\varnothing$ \\
+(\texttt{dias}, obl, \texttt{atingiu})        & obl    & ---  & $\varnothing$ \\
+(\texttt{o}, det, \texttt{incêndio})          & det    & NOUN & \{Number, Gender\} \\
+(\texttt{incêndio}, nsubj, \texttt{atingiu})  & nsubj  & VERB & \{Number, Person\} \\
+(\texttt{uma}, det, \texttt{áreas})           & det    & NOUN & \{Number, Gender\} \\
+(\texttt{áreas}, obj, \texttt{atingiu})       & obj    & ---  & $\varnothing$ \\
+(\texttt{de}, case, \texttt{mata})            & case   & ---  & $\varnothing$ \\
+(\texttt{mata}, nmod, \texttt{áreas})         & nmod   & ---  & $\varnothing$ \\
+(\texttt{nativa}, amod, \texttt{mata})        & amod   & NOUN & \{Number, Gender\} \\
+\bottomrule
+\end{tabular}}
+\caption{Os dez arcos da frase e o conjunto de traços que cada um exige.}
+\label{tab:tracos-admissao}
+\end{table}
+
+Seis arcos recaem no terceiro caso da expressão. O de \texttt{mata} corresponde precisamente
+ao caso antecipado na subseção~\ref{met:tracos}: substantivo ligado a substantivo por
+\texttt{nmod} \textbf{não} estabelece concordância, e sua inclusão faria o método acusar toda
+frase dotada de complemento nominal.
+
+Em seguida, cada arco admitido desdobra-se nos traços especificados por $T(r)$, conforme a
+Tabela~\ref{tab:tracos-comparacao}.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llccl@{}}
+\toprule
+\textbf{Arco} & $\tau$ & $\tracosp{\tau}{t}$ & $\tracosp{\tau}{h}$ & \textbf{Veredito} \\
+\midrule
+\multirow{2}{*}{(\texttt{o}, det, \texttt{incêndio})}
+  & Number & Sing & Sing & iguais \\
+  & Gender & Masc & Masc & iguais \\
+\midrule
+\multirow{2}{*}{(\texttt{incêndio}, nsubj, \texttt{atingiu})}
+  & Number & Sing & Sing & iguais \\
+  & Person & $\ausente$ & 3 & \textbf{comparação suprimida} \\
+\midrule
+\multirow{2}{*}{(\texttt{uma}, det, \texttt{áreas})}
+  & Number & \textbf{Sing} & \textbf{Plur} & $\in E(\sent)$ \\
+  & Gender & Fem & Fem & iguais \\
+\midrule
+\multirow{2}{*}{(\texttt{nativa}, amod, \texttt{mata})}
+  & Number & Sing & Sing & iguais \\
+  & Gender & Fem & Fem & iguais \\
+\bottomrule
+\end{tabular}}
+\caption{As comparações efetuadas sobre os quatro arcos admitidos.}
+\label{tab:tracos-comparacao}
+\end{table}
+
+Donde
+%
+\begin{equation}
+E(\sent) = \bigl\{\, (\texttt{uma},\ \texttt{áreas},\ \texttt{Number}) \,\bigr\}
+\end{equation}
+
+A quarta linha exemplifica a guarda $\tracosp{\tau}{\cdot} \neq \ausente$. O substantivo
+\texttt{incêndio} não porta traço de pessoa, ao passo que o verbo apresenta
+$\texttt{Person} = 3$. A comparação é suprimida: o resultado não é de igualdade, mas de
+ausência de termos a comparar. Sem essa guarda, todo sujeito nominal do português seria
+computado como discordante de seu verbo quanto à pessoa.
+
+A saída, por sua vez, não é um escore. A tripla
+$(\texttt{uma},\ \texttt{áreas},\ \texttt{Number})$ identifica a palavra responsável, o termo
+com o qual ela diverge e o traço violado; a esses se soma o arco \texttt{det} que os liga ---
+quatro informações passíveis de apresentação ao autor do texto.
+
+\subsubsection{Regras escritas à mão}
+\label{res:regras}
+
+O método foi aplicado a duas variantes. Disparou sobre a primeira e não disparou sobre a
+segunda.
+
+Sobre \emph{A três dias o incêndio atingiu uma área de mata nativa}, a
+Equação~\ref{eq:regras-D} devolveu um único par, na posição inicial:
+%
+\begin{equation}
+D(\sent) = \bigl\{\, (0,\ \texttt{CONFUSÃO\_À\_HÁ}) \,\bigr\}
+\end{equation}
+%
+A Tabela~\ref{tab:disparo} apresenta os campos que acompanham o disparo.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llp{5.2cm}@{}}
+\toprule
+\textbf{Campo} & \textbf{Valor} & \textbf{Conteúdo} \\
+\midrule
+\texttt{ruleId}       & \texttt{CONFUSÃO\_À\_HÁ} & a regra que casou --- o $r$ da fórmula \\
+\texttt{offset}       & 0        & a posição do casamento --- o $i$ da fórmula \\
+\texttt{errorLength}  & 1        & a extensão do casamento \\
+trecho                & \texttt{'A'}    & o segmento coberto por $\pi_r$ \\
+\texttt{replacements} & \texttt{['Há']} & a correção que a regra carrega \\
+\texttt{message}      & \emph{``\ldots substitua por há.''} & a norma, redigida em português \\
+\bottomrule
+\end{tabular}}
+\caption{Campos de um disparo do LanguageTool.}
+\label{tab:disparo}
+\end{table}
+
+O par $(i, r)$ constitui a localização. A última linha corresponde ao que nenhum outro método
+fornece: um enunciado em português que explicita a norma, redigido conjuntamente com o padrão.
+Trata-se, ademais, precisamente do caso que o léxico não alcança --- \texttt{a} pertence a
+$\lexico$, conforme a subseção~\ref{res:lexico}, e apenas uma regra de elaboração manual
+detecta a troca.
+
+Sobre \emph{Há três dias os incêndios atingiu uma área de mata nativa}, em que o sujeito no
+plural se combina com verbo no singular, nenhuma das 2.270 regras casou, donde
+$D(\sent) = \varnothing$. É a Equação~\ref{eq:regras-invisivel} verificada em um caso
+concreto: existe regra de concordância verbal em $R$, mas nenhum de seus padrões cobre esta
+construção, e o desvio não é detectado. Não há grau de confiança a inspecionar nem resultado
+parcial a interpretar --- a saída é a mesma de uma frase correta.
+
+O contraste entre as duas frases delimita o método. A troca \emph{a}/\emph{há} é detectada
+porque alguém escreveu $\pi_r$ para ela; a discordância entre \texttt{os incêndios} e
+\texttt{atingiu} não é detectada porque ninguém escreveu. Nenhuma das duas decisões é
+propriedade da língua, e ambas são propriedade de $R$.
+
+\subsubsection{SLOR}
+\label{res:slor}
+
+O método foi aplicado à frase de referência e à sua permutação, par que isola a ordem: as duas
+apresentam exatamente as mesmas onze palavras e diferem apenas na sequência em que aparecem.
+
+Por isso o termo $\ln P_{\mathrm{uni}}$ da Equação~\ref{eq:slor-termos} é idêntico nas duas,
+valendo $-81{,}95$ --- a distribuição unigrama percorre um multiconjunto e ignora a ordem.
+Toda a diferença reside no primeiro termo, que é precisamente a grandeza que a
+Equação~\ref{eq:slor} foi construída para isolar. A Tabela~\ref{tab:slor} abre o somatório
+posição a posição.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Token} & $\ln P(w_i \mid w_{i-1})$ & $\ln P(w_i)$ & \textbf{contrib.} & $c(w_{i-1},w_i)$ \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Há três dias o incêndio atingiu uma área de mata nativa}} \\
+\midrule
+\texttt{há}       & $-5{,}54$  & $-6{,}72$  & $+1{,}18$ & 259 \\
+\texttt{três}     & $-3{,}92$  & $-7{,}10$  & $+3{,}18$ & 36 \\
+\texttt{dias}     & $-3{,}73$  & $-7{,}39$  & $+3{,}67$ & 30 \\
+\texttt{o}        & $-3{,}23$  & $-2{,}86$  & $-0{,}37$ & 21 \\
+\texttt{incêndio} & $-8{,}25$  & $-10{,}41$ & $+2{,}16$ & 22 \\
+\texttt{atingiu}  & $-11{,}47$ & $-10{,}27$ & $-1{,}20$ & \textbf{0} \\
+\texttt{uma}      & $-6{,}19$  & $-4{,}98$  & $-1{,}20$ & \textbf{0} \\
+\texttt{área}     & $-6{,}37$  & $-8{,}16$  & $+1{,}79$ & 17 \\
+\texttt{de}       & $-1{,}09$  & $-2{,}49$  & $+1{,}40$ & 135 \\
+\texttt{mata}     & $-10{,}00$ & $-9{,}99$  & $-0{,}01$ & 4 \\
+\texttt{nativa}   & $-3{,}53$  & $-11{,}58$ & $\mathbf{+8{,}04}$ & 2 \\
+\midrule
+\multicolumn{4}{@{}l}{$\SLOR = (-63{,}32 - (-81{,}95))\,/\,11$} & $+1{,}694$ \\
+\midrule
+\midrule
+\multicolumn{5}{@{}l}{\emph{nativa uma incêndio há mata de o área três atingiu dias}} \\
+\midrule
+\texttt{nativa}   & $-12{,}78$ & $-11{,}58$ & $-1{,}20$ & \textbf{0} \\
+\texttt{uma}      & $-6{,}19$  & $-4{,}98$  & $-1{,}20$ & \textbf{0} \\
+\texttt{incêndio} & $-11{,}62$ & $-10{,}41$ & $-1{,}20$ & \textbf{0} \\
+\texttt{há}       & $-7{,}93$  & $-6{,}72$  & $-1{,}20$ & \textbf{0} \\
+\texttt{mata}     & $-11{,}19$ & $-9{,}99$  & $-1{,}20$ & \textbf{0} \\
+\texttt{de}       & $-3{,}69$  & $-2{,}49$  & $-1{,}20$ & \textbf{0} \\
+\texttt{o}        & $-1{,}94$  & $-2{,}86$  & $\mathbf{+0{,}92}$ & 16.033 \\
+\texttt{área}     & $-9{,}24$  & $-8{,}16$  & $-1{,}08$ & 1 \\
+\texttt{três}     & $-8{,}30$  & $-7{,}10$  & $-1{,}20$ & \textbf{0} \\
+\texttt{atingiu}  & $-11{,}47$ & $-10{,}27$ & $-1{,}20$ & \textbf{0} \\
+\texttt{dias}     & $-8{,}60$  & $-7{,}39$  & $-1{,}20$ & \textbf{0} \\
+\midrule
+\multicolumn{4}{@{}l}{$\SLOR = (-92{,}94 - (-81{,}95))\,/\,11$} & $-1{,}000$ \\
+\bottomrule
+\end{tabular}}
+\caption{As parcelas do numerador, posição a posição, sobre o par de ordem. A coluna
+\emph{contrib.} é $\ln P(w_i \mid w_{i-1}) - \ln P(w_i)$; em negrito, os bigramas não
+observados, cuja contribuição vale $\ln(1-\lambda) = -1{,}204$.}
+\label{tab:slor}
+\end{table}
+
+O sinal se comporta conforme a definição prevê: positivo na frase bem ordenada, $+1{,}694$, e
+negativo na embaralhada, $-1{,}000$. Aberto o somatório, contudo, o que sustenta cada um dos
+dois valores se revela mais estreito do que o par sugere.
+
+Na frase embaralhada, nove das onze parcelas correspondem a bigramas não observados e valem
+$-1{,}204$, conforme a Equação~\ref{eq:piso-slor}. O escore não mede anti-estrutura, mas a
+quase ausência de evidência: é o piso, levemente levantado por uma única contribuição
+positiva, a de \texttt{o} precedido de \texttt{de}, par observado 16.033 vezes. Trata-se de
+adjacência entre preposição e artigo que sobreviveu ao embaralhamento por acidente, e não de
+vestígio de estrutura preservada.
+
+A frase correta apoia-se em base igualmente estreita. Duas de suas onze posições ---
+\texttt{atingiu} e \texttt{uma} --- já estão no piso, ainda que a frase esteja bem construída.
+E a parcela de \texttt{nativa} responde sozinha por $8{,}04$ dos $18{,}63$ do numerador, isto
+é, por 43\% do resultado; ela provém do bigrama \texttt{mata nativa}, observado \textbf{duas}
+vezes em um milhão de tokens.
+
+O método separa o par, portanto, e o faz na direção correta. Mas a separação repousa, de um
+lado, sobre uma coocorrência vista duas vezes e, de outro, sobre a ausência de quase toda
+coocorrência --- e não sobre uma medida de ordem que seja robusta ao corpus de contagens.
+
+\subsubsection{PLL}
+\label{res:pll}
+
+O método foi aplicado a quatro frases: a de referência e três variantes, cada uma com desvio
+de natureza distinta. Todas apresentam $|\sent| = 12$, de modo que soma e média ordenam do
+mesmo modo. A Tabela~\ref{tab:pll} apresenta os dois valores.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llrr@{}}
+\toprule
+\textbf{Frase} & \textbf{Estado} & \textbf{Soma} & $\PLLm$ \\
+\midrule
+Há três dias o incêndio atingiu uma área\ldots   & correta          & $-9{,}16$   & $-0{,}763$ \\
+Há três dias os incêndios atingiu uma área\ldots & conc.\ verbal    & $-15{,}16$  & $-1{,}263$ \\
+Há três dias o incêndio cantou uma área\ldots    & seleção verbal   & $-26{,}30$  & $-2{,}192$ \\
+nativa uma incêndio há mata de o área\ldots      & embaralhada      & $-124{,}97$ & $-10{,}414$ \\
+\bottomrule
+\end{tabular}}
+\caption{O PLL sobre a frase de referência e três variantes.}
+\label{tab:pll}
+\end{table}
+
+A ordenação acompanha a gravidade do desvio, e as distâncias entre os degraus são amplas: a
+frase correta separa-se da variante de concordância por meio nat por posição, esta da anomalia
+de seleção por quase um nat, e a embaralhada situa-se uma ordem de grandeza abaixo de todas.
+Diferentemente do SLOR, nenhum dos quatro valores decorre de piso do estimador --- não há
+suavização nem recuo, apenas a distribuição que o modelo atribui a cada posição.
+
+A localização do desvio, contudo, só aparece antes da agregação. A Tabela~\ref{tab:pll-tokens}
+abre a Equação~\ref{eq:pll} posição a posição sobre o par mínimo de concordância verbal.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lrlrr@{}}
+\toprule
+\multicolumn{2}{@{}c}{\textbf{Frase correta}} & \multicolumn{2}{c}{\textbf{Com desvio}} & \\
+\cmidrule(r){1-2}\cmidrule(lr){3-4}
+Token & $\ln P_{\mathrm{MLM}}$ & Token & $\ln P_{\mathrm{MLM}}$ & $\Delta$ \\
+\midrule
+\texttt{Há}       & $-0{,}43$ & \texttt{Há}        & $-1{,}41$ & $-0{,}98$ \\
+\texttt{três}     & $-2{,}05$ & \texttt{três}      & $-2{,}33$ & $-0{,}28$ \\
+\texttt{dias}     & $-0{,}59$ & \texttt{dias}      & $-0{,}90$ & $-0{,}31$ \\
+\texttt{o}        & $-2{,}14$ & \texttt{os}        & $-1{,}47$ & $+0{,}67$ \\
+\texttt{incêndio} & $-1{,}95$ & \texttt{incêndios} & $-1{,}65$ & $+0{,}30$ \\
+\texttt{atingiu}  & $-0{,}91$ & \texttt{atingiu}   & $\mathbf{-6{,}09}$ & $\mathbf{-5{,}18}$ \\
+\texttt{uma}      & $-0{,}06$ & \texttt{uma}       & $-0{,}22$ & $-0{,}16$ \\
+\texttt{área}     & $-0{,}07$ & \texttt{área}      & $-0{,}09$ & $-0{,}02$ \\
+\texttt{de}       & $-0{,}04$ & \texttt{de}        & $-0{,}04$ & $0{,}00$ \\
+\texttt{mata}     & $-0{,}21$ & \texttt{mata}      & $-0{,}26$ & $-0{,}05$ \\
+\texttt{nativa}   & $-0{,}70$ & \texttt{nativa}    & $-0{,}69$ & $+0{,}01$ \\
+\texttt{.}        & $-0{,}00$ & \texttt{.}         & $-0{,}00$ & $0{,}00$ \\
+\midrule
+\textbf{soma}     & $-9{,}16$ & \textbf{soma}      & $-15{,}16$ & $-6{,}00$ \\
+\bottomrule
+\end{tabular}}
+\caption{As parcelas da Equação~\ref{eq:pll} sobre o par mínimo de concordância verbal.}
+\label{tab:pll-tokens}
+\end{table}
+
+Dos $6{,}00$ nats de diferença entre as duas somas, $5{,}18$ concentram-se em uma única
+posição, a do verbo: \texttt{atingiu} passa de $-0{,}91$ para $-6{,}09$. Manifesta-se aqui a
+bidirecionalidade do modelo, uma vez que, ao mascarar o verbo, ele dispõe de \emph{os
+incêndios} à esquerda e conclui pela inadequação do singular. O método, portanto, não apenas
+ordena as duas frases: indica onde elas diferem.
+
+Convém observar de que natureza é essa indicação. O desvio é uma discordância \emph{entre}
+sujeito e verbo, e nada na frase determina qual dos dois está errado --- \emph{os incêndios
+atingiram} e \emph{o incêndio atingiu} são ambas corretas. O modelo, no entanto, atribui a
+totalidade da penalidade ao verbo: mascaradas, as formas \texttt{os} e \texttt{incêndios}
+tornam-se \emph{mais} prováveis do que suas contrapartes no singular, com $\Delta$ positivo.
+A localização produzida é uma atribuição do modelo, e não um fato linguístico sobre a frase.
+
+% =====================================================================
+\subsection{Estrutura}
+\label{res:estrutura}
+
+\subsubsection{Teste do núcleo predicativo}
+\label{res:raiz}
+
+O método foi aplicado a quatro frases: a de referência, o fragmento, uma predicação nominal e
+um infinitivo isolado. Das quatro, acertou três e errou uma. A Tabela~\ref{tab:raiz}
+confronta o veredito da Equação~\ref{eq:raiz-pred} com o esperado.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Frase} & \textbf{Raiz} & \textbf{Veredito} & \textbf{Esperado} & \\
+\midrule
+Há três dias\ldots\ atingiu\ldots      & \texttt{atingiu} (VERB, \texttt{Fin}) & ORAÇÃO    & ORAÇÃO    & ok \\
+Há três dias\ldots\ que atingiu\ldots  & \texttt{dias} (NOUN)                  & FRAGMENTO & FRAGMENTO & ok \\
+O incêndio é intenso.                     & \texttt{intenso} (ADJ + \texttt{cop}) & ORAÇÃO    & ORAÇÃO    & ok \\
+Atingir uma área\ldots                   & \texttt{Atingir} (VERB, \texttt{Inf}) & ORAÇÃO    & \textbf{FRAGMENTO} & \textbf{erro} \\
+\bottomrule
+\end{tabular}}
+\caption{O teste da raiz sobre quatro frases, com o veredito confrontado ao esperado.}
+\label{tab:raiz}
+\end{table}
+
+O acerto se dá pelos dois modos de a Equação~\ref{eq:raiz-pred} ser satisfeita, e cada frase
+correta exercita um. Na de referência a raiz é \texttt{atingiu}, com $\mathrm{pos} =
+\texttt{VERB}$, e o primeiro termo da disjunção basta. Em \emph{O incêndio é intenso} a raiz é
+o adjetivo \texttt{intenso}, o primeiro termo é falso, e a aprovação vem do segundo, que
+encontra \texttt{é} entre os dependentes com função \texttt{cop}.
+
+A frase sem predicado é a segunda. O pronome \texttt{que} rebaixa \texttt{atingiu} a
+\texttt{acl:relcl}, a raiz passa a \texttt{dias}, que é NOUN e não tem dependente copular, e
+os dois termos da disjunção são falsos. Uma única palavra inverte o veredito, e nenhum outro
+método examinado registra a diferença, uma vez que as duas frases contêm o mesmo verbo.
+Registre-se que nessa frase o analisador devolveu dois nós \texttt{ROOT}, \texttt{dias} e
+\texttt{incêndio}; a implementação retém o primeiro, e por serem ambos NOUN o veredito não
+depende da escolha.
+
+O erro é a quarta. Em \emph{Atingir uma área de mata nativa em três dias} a raiz é
+\texttt{Atingir}, também VERB, de modo que o primeiro termo da disjunção é satisfeito
+exatamente como na frase de referência. Trata-se, porém, de infinitivo isolado, que não
+constitui predicação. A informação que separaria os dois casos está na árvore, na forma do
+traço $\texttt{VerbForm} = \texttt{Inf}$, e a Equação~\ref{eq:raiz-pred} não a consulta.
+
+\subsubsection{Comprimento de dependência e não-projetividade}
+\label{res:dependencia}
+
+As duas medidas foram aplicadas a um par de frases auxiliares que compartilha as mesmas 13
+palavras, os mesmos 12 arcos e as mesmas duas orações relativas, diferindo apenas na posição
+em que estas foram encaixadas. Ambas são corretas. A Tabela~\ref{tab:dependencia} abre a
+Equação~\ref{eq:dep-D} arco a arco.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llrl@{}}
+\toprule
+$t$ & $\nucleo{t}$ & $d(t)$ & rótulo \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{O vento agravou a seca que intensificou o fogo que destruiu a mata.}} \\
+\midrule
+\texttt{O}            & \texttt{vento}        & 1 & det \\
+\texttt{vento}        & \texttt{agravou}      & 1 & nsubj \\
+\texttt{a}            & \texttt{seca}         & 1 & det \\
+\texttt{seca}         & \texttt{agravou}      & 2 & obj \\
+\texttt{que}          & \texttt{intensificou} & 1 & nsubj \\
+\texttt{intensificou} & \texttt{seca}         & 2 & acl:relcl \\
+\texttt{o}            & \texttt{fogo}         & 1 & det \\
+\texttt{fogo}         & \texttt{intensificou} & 2 & obj \\
+\texttt{que}          & \texttt{destruiu}     & 1 & nsubj \\
+\texttt{destruiu}     & \texttt{fogo}         & 2 & acl:relcl \\
+\texttt{a}            & \texttt{mata}         & 1 & det \\
+\texttt{mata}         & \texttt{destruiu}     & 2 & obj \\
+\midrule
+\multicolumn{2}{@{}l}{$|A| = 12$ \quad $D = 17$ \quad $\bar{D} = 1{,}42$}
+  & \multicolumn{2}{r@{}}{maior arco 2 \quad $X = 0$} \\
+\midrule
+\midrule
+\multicolumn{4}{@{}l}{\emph{O fogo que a seca que o vento agravou intensificou destruiu a mata.}} \\
+\midrule
+\texttt{O}            & \texttt{fogo}         & 1 & det \\
+\texttt{fogo}         & \texttt{destruiu}     & \textbf{9} & nsubj \\
+\texttt{que}          & \texttt{intensificou} & 7 & obj \\
+\texttt{a}            & \texttt{seca}         & 1 & det \\
+\texttt{seca}         & \texttt{intensificou} & 5 & nsubj \\
+\texttt{que}          & \texttt{agravou}      & 3 & obj \\
+\texttt{o}            & \texttt{vento}        & 1 & det \\
+\texttt{vento}        & \texttt{agravou}      & 1 & nsubj \\
+\texttt{agravou}      & \texttt{seca}         & 4 & acl:relcl \\
+\texttt{intensificou} & \texttt{fogo}         & 8 & acl:relcl \\
+\texttt{a}            & \texttt{mata}         & 1 & det \\
+\texttt{mata}         & \texttt{destruiu}     & 2 & obj \\
+\midrule
+\multicolumn{2}{@{}l}{$|A| = 12$ \quad $D = 43$ \quad $\bar{D} = 3{,}58$}
+  & \multicolumn{2}{r@{}}{maior arco 9 \quad $X = 0$} \\
+\bottomrule
+\end{tabular}}
+\caption{Os doze arcos de cada frase, com seu comprimento, e as duas medidas resultantes.}
+\label{tab:dependencia}
+\end{table}
+
+O comprimento de dependência separa as duas frases com margem ampla. Na primeira nenhum arco
+excede 2: cada relativa se vincula ao substantivo imediatamente anterior, e a frase se resolve
+da esquerda para a direita sem retenção. Na segunda os vínculos se acumulam --- \texttt{fogo}
+encontra seu verbo nove posições adiante, e \texttt{intensificou} o seu, oito --- e $\bar{D}$
+mais que duplica. Como referência aproximada, a prosa corrente situa-se entre 1 e 2 nas
+línguas para as quais a medida foi levantada em larga escala~\cite{futrell2015}; acima de 3, a
+frase mantém número elevado de vínculos simultaneamente em aberto.
+
+A não-projetividade não separa nada. $X$ é nulo nas duas frases, inclusive na segunda, cujo
+encaixamento é central. Decorre das desigualdades estritas da Equação~\ref{eq:dep-cruzam}:
+arcos que compartilham extremidade não contam como cruzados, e o encaixe de uma relativa no
+interior de outra produz arcos aninhados, não sobrepostos. A medida é definida e correta, e
+sobre este corpus não devolve informação alguma.
+
+Vale o mesmo registro da subseção anterior: as duas frases são corretas, de modo que nenhuma
+das medidas emite veredito. O que $\bar{D}$ separa é a carga de processamento imposta pela
+ordem escolhida, não a boa formação.
+
+% =====================================================================
+\subsection{Semântica}
+\label{res:semantica}
+
+\subsubsection{Surpresa por token}
+\label{res:surpresa}
+
+O método foi aplicado a três frases: a de referência, sua variante com anomalia de seleção
+verbal e uma frase correta de vocabulário do domínio. Das três, o
+$\arg\max$ da Equação~\ref{eq:surp-argmax} apontou a palavra devida em uma. A
+Tabela~\ref{tab:surpresa} confronta o pico com a palavra que de fato apresenta desvio.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Frase} & \textbf{Estado} & \textbf{Pico} & \textbf{Palavra com desvio} & \\
+\midrule
+Há três dias\ldots\ atingiu\ldots & correta          & \texttt{atingiu} (11,47) & nenhuma            & \textbf{erro} \\
+Há três dias\ldots\ cantou\ldots  & seleção verbal   & \texttt{cantou} (13,70)  & \texttt{cantou}    & ok \\
+Focos recorrentes\ldots            & correta          & \texttt{anômala} (15,08) & nenhuma            & \textbf{erro} \\
+\bottomrule
+\end{tabular}}
+\caption{O pico de surpresa, em nats, confrontado com a palavra que apresenta desvio.}
+\label{tab:surpresa}
+\end{table}
+
+A Tabela~\ref{tab:surpresa-perfil} abre o perfil das duas primeiras frases, que diferem em uma
+única palavra.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}lrrlrr@{}}
+\toprule
+\multicolumn{3}{@{}c}{\textbf{Frase correta}} & \multicolumn{3}{c@{}}{\textbf{Com anomalia}} \\
+\cmidrule(r){1-3}\cmidrule(l){4-6}
+Token & $\surp$ & $c(bi)$ & Token & $\surp$ & $c(bi)$ \\
+\midrule
+\texttt{há}       & 5,54  & 259 & \texttt{há}       & 5,54  & 259 \\
+\texttt{três}     & 3,92  & 36  & \texttt{três}     & 3,92  & 36 \\
+\texttt{dias}     & 3,73  & 30  & \texttt{dias}     & 3,73  & 30 \\
+\texttt{o}        & 3,23  & 21  & \texttt{o}        & 3,23  & 21 \\
+\texttt{incêndio} & 8,25  & 22  & \texttt{incêndio} & 8,25  & 22 \\
+\texttt{atingiu}  & \textbf{11,47} & \textbf{0} & \texttt{cantou} & \textbf{13,70} & \textbf{0} \\
+\texttt{uma}      & 6,19  & \textbf{0} & \texttt{uma}  & 6,19  & \textbf{0} \\
+\texttt{área}     & 6,37  & 17  & \texttt{área}     & 6,37  & 17 \\
+\texttt{de}       & 1,09  & 135 & \texttt{de}       & 1,09  & 135 \\
+\texttt{mata}     & 10,00 & 4   & \texttt{mata}     & 10,00 & 4 \\
+\texttt{nativa}   & 3,53  & 2   & \texttt{nativa}   & 3,53  & 2 \\
+\bottomrule
+\end{tabular}}
+\caption{Perfis de surpresa das duas frases, em nats. Em negrito, a posição que difere e as de
+bigrama não observado.}
+\label{tab:surpresa-perfil}
+\end{table}
+
+Onde o contexto intervém, a medida faz o que promete. Isoladamente, \texttt{nativa} é palavra
+de frequência muito baixa, com surpresa de $11{,}58$; precedida de \texttt{mata}, é
+praticamente esperada e o valor cai para $3{,}53$. É o comportamento pretendido: mensurar a
+palavra em posição, e não em abstrato.
+
+O acerto da segunda linha da Tabela~\ref{tab:surpresa} é igualmente legítimo. Trocado
+\texttt{atingiu} por \texttt{cantou}, apenas aquela posição se altera --- as outras dez
+permanecem idênticas até a segunda casa ---, e o pico acompanha a troca. O método é local, e o
+perfil registra a mudança onde ela ocorreu.
+
+Os dois erros, contudo, têm a mesma origem, e ela está na Equação~\ref{eq:teto-surpresa}. Os
+três picos recaem sobre posições de bigrama não observado, onde a surpresa vale
+$\surp_{\mathrm{uni}} + 1{,}204$: $11{,}47 = 10{,}27 + 1{,}20$, $13{,}70 = 12{,}49 + 1{,}20$ e
+$15{,}08 = 13{,}88 + 1{,}20$. Nenhum deles mede contexto. Na frase de referência, que não tem
+desvio algum, o pico recai sobre \texttt{atingiu} porque \texttt{incêndio atingiu} não foi
+observado no corpus de contagens --- e o $\arg\max$ aponta a palavra correta de uma frase
+correta. Em \emph{Focos recorrentes apresentaram persistência anômala} o caso é extremo: os
+cinco bigramas são não observados, todo o perfil é unigrama deslocado de $1{,}204$, e o pico é
+simplesmente a palavra mais rara, no valor de teto do estimador.
+
+A suposição registrada na subseção~\ref{met:surpresa} --- a de que \emph{improvável} e
+\emph{incorreto} coincidam --- é, portanto, o que o método efetivamente mede. O $\arg\max$
+seleciona a palavra mais rara, e isso coincide com o desvio apenas quando o desvio é uma
+palavra rara. Foi o que ocorreu com \texttt{cantou}, e é contingência do exemplo, não
+propriedade do método.
+
+\subsubsection{Plausibilidade do verbo mascarado}
+\label{res:verbo}
+
+O método foi aplicado a cinco frases: três em que a raiz é verbo e duas em que não é. A
+Tabela~\ref{tab:verbo} apresenta as duas leituras da Equação~\ref{eq:verbo-margem}.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llrrl@{}}
+\toprule
+\textbf{Frase} & \textbf{Estado} & $\ln P(v_\raiz)$ & $m(\sent)$ & \\
+\midrule
+\ldots\ o incêndio \textbf{destruiu} uma área\ldots & paráfrase        & $-0{,}72$  & $0{,}00$ & ok \\
+\ldots\ o incêndio \textbf{atingiu} uma área\ldots  & referência       & $-0{,}91$  & $0{,}20$ & ok \\
+\ldots\ o incêndio \textbf{cantou} uma área\ldots   & seleção verbal   & $-14{,}45$ & $\mathbf{13{,}73}$ & ok \\
+\ldots\ o incêndio \textbf{que} atingiu\ldots       & fragmento        & \multicolumn{2}{c}{\texttt{n/a} --- raiz \texttt{dias} (NOUN)} & --- \\
+O incêndio é intenso.                                & predic.\ nominal & \multicolumn{2}{c}{\texttt{n/a} --- raiz \texttt{intenso} (ADJ)} & --- \\
+\bottomrule
+\end{tabular}}
+\caption{A margem do verbo da raiz. As formas esperadas são as mesmas nas três primeiras
+frases: \texttt{[destruiu, atingiu, atinge, invadiu, em]}.}
+\label{tab:verbo}
+\end{table}
+
+A separação é ampla: quase 14 nats entre o verbo anômalo e os dois adequados, que se situam
+junto ao zero. A primeira linha fixa o significado desse zero --- \texttt{destruiu} é a
+primeira escolha do modelo, e por isso a margem é exatamente nula. A escala não é arbitrária.
+
+O aspecto metodologicamente relevante é a lista de formas esperadas ser idêntica nas três
+frases, e não poderia ser diferente: ao mascarar a raiz, suprime-se justamente a única palavra
+em que as três diferem, de modo que o contexto remanescente é o mesmo. O instrumento de medida
+permanece fixo e apenas o objeto mensurado varia, e é essa condição que torna a comparação
+legítima. Nenhum dos métodos anteriores dispõe dela: no SLOR e na surpresa, mudar a palavra
+muda também as contagens que servem de referência.
+
+As duas últimas linhas exercitam a cláusula de não aplicabilidade. No fragmento a raiz é
+\texttt{dias}, e na predicação nominal é \texttt{intenso}: em nenhum dos dois casos há verbo
+na raiz para mascarar, e a resposta é \texttt{n/a}. Não se trata de falha, e sim do
+comportamento previsto na subseção~\ref{met:verbo} --- reconhecer a não aplicabilidade integra
+o emprego correto do método. Note-se, contudo, que essa cláusula transfere a decisão para o
+analisador sintático: as duas frases receberam \texttt{n/a} porque a árvore predita as
+classificou assim, e a subseção~\ref{res:raiz} mostrou que essa árvore nem sempre é única nem
+completa.
+
+Resta a folga apontada na definição. A quinta posição da lista esperada é \texttt{em}, uma
+preposição, o que confirma que $\mathcal{V}$ não está restrito a formas verbais. Neste corpus
+a folga é inconsequente, pois $\hat{v}$ foi \texttt{destruiu} nas três frases; mas nada na
+Equação~\ref{eq:verbo-margem} impede que o melhor preenchimento seja uma palavra de outra
+classe, caso em que a margem passaria a medir a distância até ela.
+
+\subsubsection{Embeddings}
+\label{res:embeddings}
+
+A Equação~\ref{eq:cosseno} foi aplicada a onze pares de palavras do domínio, agrupados em
+sinônimos, antônimos e pares sem relação. A Tabela~\ref{tab:embeddings} os apresenta ordenados
+por proximidade.
+
+\begin{table}[H]
+\centering
+\dimtable{
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Par} & \textbf{Relação} & $\cos$ \\
+\midrule
+\texttt{seco} × \texttt{úmido}         & \textbf{antônimos} & $\mathbf{+0{,}838}$ \\
+\texttt{quente} × \texttt{frio}        & \textbf{antônimos} & $+0{,}690$ \\
+\texttt{área} × \texttt{região}        & sinônimos   & $+0{,}658$ \\
+\texttt{chamas} × \texttt{fogo}        & sinônimos   & $+0{,}648$ \\
+\texttt{mata} × \texttt{floresta}      & sinônimos   & $+0{,}610$ \\
+\texttt{início} × \texttt{fim}         & \textbf{antônimos} & $+0{,}562$ \\
+\texttt{incêndio} × \texttt{fogo}      & sinônimos   & $+0{,}509$ \\
+\texttt{ativo} × \texttt{extinto}      & \textbf{antônimos} & $+0{,}263$ \\
+\midrule
+\texttt{fogo} × \texttt{sintaxe}       & sem relação & $+0{,}065$ \\
+\texttt{incêndio} × \texttt{gramática} & sem relação & $+0{,}005$ \\
+\texttt{área} × \texttt{advérbio}      & sem relação & $-0{,}063$ \\
+\bottomrule
+\end{tabular}}
+\caption{Cossenos entre pares de palavras do domínio, ordenados por proximidade.}
+\label{tab:embeddings}
+\end{table}
+
+O bloco inferior estabelece a referência de leitura: os três pares sem relação situam-se junto
+a zero, entre $-0{,}063$ e $+0{,}065$, de modo que o zero corresponde de fato à ausência de
+relação e é contra ele que os demais valores devem ser interpretados. Nesse aspecto a medida se
+comporta como esperado.
+
+O bloco superior não separa o que se pretenderia separar. O par de maior proximidade em toda a
+tabela é um par de \emph{opostos}: \texttt{seco}~×~\texttt{úmido}, com $+0{,}838$, supera
+todos os sinônimos, inclusive \texttt{incêndio}~×~\texttt{fogo} ($+0{,}509$), cujos termos
+designam praticamente a mesma entidade. Antônimos e sinônimos aparecem intercalados ao longo de
+toda a coluna, e nenhum ponto de corte os separa.
+
+Não se trata de defeito do modelo, mas do funcionamento previsto da hipótese distribucional.
+\texttt{Seco} e \texttt{úmido} ocorrem exatamente nos mesmos contextos --- \emph{clima
+\underline{\quad}}, \emph{solo \underline{\quad}}, \emph{período \underline{\quad}} --- e,
+como o vetor sumariza contextos, ambos recebem direções quase coincidentes. Já
+\texttt{incêndio} e \texttt{fogo} pertencem a registros distintos, o primeiro designando o
+evento noticiado e o segundo o elemento. O cosseno mensura campo temático, e não sentido, e a
+informação que separaria equivalência de oposição nunca foi incorporada ao
+vetor~\cite{faruqui2016,schnabel2015}.
+
+A extensão à frase foi verificada sobre um par de permutação. Aplicada a
+Equação~\ref{eq:vetor-frase} a \emph{O fogo atingiu o vale} e \emph{O vale atingiu o fogo}, o
+cosseno entre os dois vetores resultantes é $1{,}000000$: as duas frases são, para o método,
+indistinguíveis. É a confirmação numérica da invariância derivada na
+subseção~\ref{met:embeddings}, e ela exclui a medida de qualquer verificação que dependa de
+ordem --- o que inclui a permutação do corpus, detectada pelo SLOR e pelo PLL.
+
+Um último registro delimita o alcance. Consultada a tabela para \texttt{natvia}, a forma não
+possui vetor, e o modelo devolve o vetor nulo, de norma $0{,}00$. Sobre uma palavra fora da
+tabela o método não produz medida errada: não produz medida alguma. É exatamente o caso que a
+subseção~\ref{res:lexico} mostrou ser o único que o léxico decide com exatidão.
+
+% =====================================================================
+%  EM ABERTO: o agrupamento por dimensão compara técnicas DENTRO de cada
+%  dimensão. A tese do resumo — "não são intercambiáveis nem ordenáveis
+%  por qualidade: suas coberturas são complementares" — é uma afirmação
+%  ENTRE dimensões, e hoje não tem onde ser sustentada. Descomentar se a
+%  síntese for morar aqui, em vez de na discussão.
+%
+% \subsection{Síntese}
+% \label{res:sintese}
+% =====================================================================

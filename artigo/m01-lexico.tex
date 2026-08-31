@@ -1,0 +1,43 @@
+% =====================================================================
+%  Método 1 — Léxico com distância de edição   (dimensão: ortografia)
+%  Escopo: o que a técnica se propõe a fazer e as fórmulas.
+%  A aplicação das fórmulas está na subseção de resultados.
+% =====================================================================
+\subsection{Léxico com distância de edição}
+\label{met:lexico}
+
+\indent\indent O método se propõe a duas coisas: verificar se cada palavra da frase é forma atestada do
+idioma e, quando não é, propor a forma que provavelmente se pretendia escrever. Opera sobre um
+conjunto finito $\lexico$, cada elemento associado a uma contagem $f(w)$ de ocorrências no
+corpus que originou a lista, e decompõe-se em dois passos encadeados~\cite{kukich1992}.
+
+O primeiro é a detecção. Dado o léxico $\lexico$,
+%
+\begin{equation}
+\mathrm{erro}(w) = \begin{cases} 0, & w \in \lexico \\ 1, & w \notin \lexico \end{cases}
+\label{eq:lex-deteccao}
+\end{equation}
+%
+O predicado é exato: a palavra consta ou não consta do conjunto, sem gradação nem margem de
+incerteza.
+
+O segundo é a correção, aplicada apenas às formas detectadas. Seja $C_k(w)$ o conjunto das
+formas do léxico situadas a exatamente $k$ edições de $w$. A busca é escalonada, de modo que a
+distância 2 só é consultada quando a distância 1 não devolve candidato algum:
+%
+\begin{equation}
+C(w) = \begin{cases} C_1(w), & C_1(w) \neq \varnothing \\[3pt] C_2(w), & C_1(w) = \varnothing \end{cases}
+\label{eq:lex-escalonamento}
+\end{equation}
+%
+e, entre os candidatos admitidos, a frequência determina a escolha:
+%
+\begin{equation}
+\hat{w} = \arg\max_{c \,\in\, C(w)} f(c)
+\label{eq:lex-argmax}
+\end{equation}
+
+A distância empregada é a de Damerau-Levenshtein~\cite{damerau1964,levenshtein1966}, que
+computa a transposição de dois caracteres adjacentes como uma única edição, e não como duas. A
+escolha da métrica não é detalhe de implementação: é ela que determina quem entra em $C_1$ e,
+por consequência, o que o $\arg\max$ pode devolver.
